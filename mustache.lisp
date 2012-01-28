@@ -27,6 +27,11 @@
 ;;; Mustache is a kind of logic-less template formats.
 ;;; See also: http://mustache.github.com/
 
+;;;; TODO:
+;;;
+;;; * Lambdas
+;;; * Emit compiled template
+
 ;;;; Code:
 
 (in-package :mustache)
