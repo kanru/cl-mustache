@@ -385,11 +385,6 @@
 (defmethod (setf context-get) (value key context)
   (setf (gethash key (data context)) value))
 
-(defun context-get-any (context)
-  (let ((data (data context)))
-    (if (atom data)
-        data)))
-
 ;;; Partials
 
 (defun read-partial (filename &optional context)
