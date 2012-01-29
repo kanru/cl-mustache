@@ -30,7 +30,7 @@
 ;;;; TODO:
 ;;;
 ;;; * Lambdas
-;;; * Emit compiled template
+;;; * Optimize compiled renderer
 
 ;;;; Code:
 
@@ -63,6 +63,7 @@
 (deftype text-char () '(not (or space-char newline-char)))
 
 (defclass token () ())
+(defclass noop () ())
 (defclass beginning-of-line (token) ())
 (defclass newline (token) ())
 (defclass crlf-newline (newline) ())
@@ -83,8 +84,8 @@
 (defclass normal-tag (non-standalone-tag) ())
 (defclass implicit-iterator-tag (non-standalone-tag) ())
 (defclass ampersand-tag (non-standalone-tag) ())
-(defclass delimiter-tag (can-standalone-tag) ())
-(defclass comment-tag (can-standalone-tag) ())
+(defclass delimiter-tag (can-standalone-tag noop) ())
+(defclass comment-tag (can-standalone-tag noop) ())
 (defclass partial-tag (can-standalone-tag) ())
 
 (defclass section-start-tag (can-standalone-tag)
@@ -301,29 +302,6 @@
 (defun parse (template)
   (group-sections (trim-standalone (scan template))))
 
-;;; Rendering Utils
-
-(defparameter *char-to-escapes* "<>&\"'")
-
-(defun escape-char (char)
-  (case char
-    (#\& "&amp;")
-    (#\< "&lt;")
-    (#\> "&gt;")
-    (#\' "&apos;")
-    (#\" "&quot;")
-    (t (format nil "&#~d;" (char-code char)))))
-
-(defun escape (string)
-  (flet ((needs-escape-p (char) (find char *char-to-escapes*)))
-    (with-output-to-string (out)
-      (loop for start = 0 then (1+ pos)
-            for pos = (position-if #'needs-escape-p string :start start)
-            do (write-sequence string out :start start :end pos)
-            when pos
-              do (write-sequence (escape-char (char string pos)) out)
-            while pos))))
-
 ;;; Context
 
 (defclass context ()
@@ -421,7 +399,28 @@
           (read-sequence buffer stream))
         (context-get filename (partials context)))))
 
-;;; Rendering
+;;; Rendering Utils
+
+(defparameter *char-to-escapes* "<>&\"'")
+
+(defun escape-char (char)
+  (case char
+    (#\& "&amp;")
+    (#\< "&lt;")
+    (#\> "&gt;")
+    (#\' "&apos;")
+    (#\" "&quot;")
+    (t (format nil "&#~d;" (char-code char)))))
+
+(defun escape (string)
+  (flet ((needs-escape-p (char) (find char *char-to-escapes*)))
+    (with-output-to-string (out)
+      (loop for start = 0 then (1+ pos)
+            for pos = (position-if #'needs-escape-p string :start start)
+            do (write-sequence string out :start start :end pos)
+            when pos
+              do (write-sequence (escape-char (char string pos)) out)
+            while pos))))
 
 (defmethod escapep ((object ampersand-tag)) nil)
 (defmethod (setf escapep) (new-value (object ampersand-tag)) nil)
@@ -443,88 +442,100 @@
   (declare (ignore escapep context))
   (princ token))
 
-(defgeneric print-token (token &optional context))
+(defun print-indent (&optional context)
+  (when (and context
+             (indent context))
+    (funcall (car (indent context)) nil)))
 
-(defmethod print-token ((token text) &optional context)
-  (declare (ignore context))
-  (princ (text token)))
+;;; Compiler
 
-(defmethod print-token ((token newline) &optional context)
-  (declare (ignore context))
-  (princ #\Newline))
+(defgeneric emit-token (token))
 
-(defmethod print-token ((token crlf-newline) &optional context)
-  (declare (ignore context))
-  (princ crlf))
+(defmethod emit-token ((token text))
+  `(princ ,(text token)))
 
-(defmethod print-token ((token tag) &optional context)
-  (multiple-value-bind (dat find)
-      (context-get (text token) context)
-    (when find (print-data dat (escapep token) context))))
+(defmethod emit-token ((token newline))
+  `(princ #\Newline))
 
-(defmethod print-token ((token partial-tag) &optional context)
-  (let ((tokens (parse (read-partial (text token) context))))
-    (push (indent token) (indent context))
-    (render-tokens tokens context)
-    (pop (indent context))))
+(defmethod emit-token ((token crlf-newline))
+  `(princ ,crlf))
 
-(defmethod print-token ((token section-tag) &optional context)
-  (multiple-value-bind (ctx find)
-      (context-get (text token) context)
-    (when (or find (falsey token))
-      (let ((tokens (tokens token)))
-        (if (falsey token)
-            (when (null ctx)
-              (render-tokens tokens context))
-            (typecase ctx
-              (hash-table
-               (render-tokens tokens (make-context ctx context)))
-              (null)
-              (vector
-               (loop for ctx across ctx
-                     do (render-tokens tokens (make-context ctx context))))
-              (t
-               (render-tokens tokens context))))))))
+(defmethod emit-token ((token tag))
+  `(multiple-value-bind (dat find)
+       (context-get ,(text token) context)
+     (when find (print-data dat ,(escapep token) context))))
 
-(defmethod print-token ((token implicit-iterator-tag) &optional context)
-  (print-data (data context) (escapep token) context))
+(defmethod emit-token ((token partial-tag))
+  `(let ((fun (mustache-compile
+               (or (read-partial ,(text token) context) ""))))
+     (push (lambda (&optional context)
+             (declare (ignorable context))
+             ,@(emit-tokens (indent token)))
+           (indent context))
+     (funcall fun context)
+     (pop (indent context))))
 
-;; noop tags
-(defmethod print-token ((token delimiter-tag) &optional context)
-  (declare (ignore context))
-  (values))
+(defmethod emit-token ((token section-tag))
+  `(multiple-value-bind (ctx find)
+       (context-get ,(text token) context)
+     (when (or find ,(falsey token))
+       (flet ((fun (&optional context)
+                (declare (ignorable context))
+                ,@(emit-tokens (tokens token))))
+         ,(if (falsey token)
+              `(when (null ctx)
+                 (fun context))
+              `(typecase ctx
+                 (hash-table
+                  (fun (make-context ctx context)))
+                 (null)
+                 (vector
+                  (loop for ctx across ctx
+                        do (fun (make-context ctx context))))
+                 (t
+                  (fun context))))))))
 
-(defmethod print-token ((token comment-tag) &optional context)
-  (declare (ignore context))
-  (values))
+(defmethod emit-token ((token implicit-iterator-tag))
+  `(print-data (data context) ,(escapep token) context))
 
-(defmethod print-token ((token beginning-of-line) &optional context)
-  (declare (ignore context))
-  (values))
+(defmethod emit-token ((token beginning-of-line))
+  (declare (ignore token))
+  `(print-indent context))
 
-(defun print-indent (context)
-  (mapc #'render-tokens (indent context)))
+;; noop tokens
+(defmethod emit-token ((token noop))
+  `(values))
 
-(defun render-tokens (tokens &optional context)
-  (let ((context (if (listp context)
-                     (mustache-context :data context)
-                     context)))
-    (loop for line in (collect-line tokens)
-         when context
-           do (print-indent context)
-         do (loop for token in line
-                  do (print-token token context)))))
+(defun emit-tokens (tokens)
+  (loop for token in tokens
+        collect (emit-token token)))
+
+(defun emit-body (tokens)
+  `((let ((context (if (listp context)
+                       (mustache-context :data context)
+                       context)))
+      (declare (ignorable context))
+      ,@(emit-tokens tokens))))
+
+;;; Interfaces
+
+(defgeneric mustache-compile (template)
+  (:documentation "Return a compiled rendering function."))
+
+(defmethod mustache-compile ((template string))
+  (compile nil `(lambda (&optional context) ,@(emit-body (parse template)))))
 
 (defgeneric mustache-render (template &optional context)
   (:documentation "Render TEMPLATE with optional CONTEXT to string."))
 
-(defmethod mustache-render ((template list) &optional context)
-  (with-output-to-string (*standard-input*)
-    (render-tokens template context)))
-
 (defmethod mustache-render ((template string) &optional context)
-  (with-output-to-string (*standard-output*)
-    (render-tokens (parse template) context)))
+  (let ((fun (mustache-compile template)))
+    (with-output-to-string (*standard-output*)
+      (funcall fun context))))
+
+(defmacro defmustache (name template)
+  "Define a named renderer of string TEMPLATE."
+  `(defun ,name (&optional context) ,@(emit-body (parse template))))
 
 ;;; mustache.lisp ends here
 

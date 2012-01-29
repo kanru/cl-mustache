@@ -61,7 +61,7 @@
 
 (defmacro test-result (expected template data partials)
   `(handler-case (string= ,expected (mustache-render ,template (mustache-context :data ,data :partials ,partials)))
-     (t (condition)
+     (error (condition)
        (declare (ignore condition))
        :unexpected-test-failure)
      (:no-error (result)

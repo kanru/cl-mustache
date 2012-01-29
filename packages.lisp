@@ -33,7 +33,9 @@
 (defpackage #:mustache
   (:use #:cl)
   (:export #:mustache-context
-           #:mustache-render))
+           #:mustache-compile
+           #:mustache-render
+           #:defmustache))
 
 
 ;;; packages.lisp ends here
