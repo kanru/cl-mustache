@@ -531,7 +531,8 @@
                        (mustache-context :data context)
                        context)))
       (declare (ignorable context))
-      ,@(emit-tokens tokens))))
+      (with-standard-io-syntax
+        ,@(emit-tokens tokens)))))
 
 ;;; Interfaces
 
