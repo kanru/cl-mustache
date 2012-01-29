@@ -65,12 +65,14 @@
 (defclass token () ())
 (defclass noop () ())
 (defclass beginning-of-line (token) ())
-(defclass newline (token) ())
-(defclass crlf-newline (newline) ())
 
 (defclass text (token)
   ((text :initarg :text :accessor text)))
 (defclass whitespace (text) ())
+(defclass newline (text)
+  ((text :initform (coerce '(#\Newline) 'string))))
+(defclass crlf-newline (newline)
+  ((text :initform (coerce '(#\Return #\Newline) 'string))))
 
 (defclass tag (token)
   ((text :initarg :text :accessor text)
@@ -299,8 +301,24 @@
           (otherwise
            (group-sections rest end-tags (push-token token acc)))))))
 
+(defun textp (token)
+  (typep token 'text))
+
+(defun fold-text (tokens)
+  (loop for start = 0 then next
+        for finish = (position-if (complement #'textp) tokens :start start)
+        for next = (and finish (position-if #'textp tokens :start finish))
+        for texts = (subseq tokens start finish)
+        when texts
+          collect (make-instance 'text :text
+                                 (format nil "~{~a~}" (mapcar #'text texts)))
+        when (and finish
+                  (subseq tokens finish next))
+          append it
+        while next))
+
 (defun parse (template)
-  (group-sections (trim-standalone (scan template))))
+  (group-sections (fold-text (trim-standalone (scan template)))))
 
 ;;; Context
 
@@ -448,12 +466,6 @@
 
 (defmethod emit-token ((token text))
   `(princ ,(text token)))
-
-(defmethod emit-token ((token newline))
-  `(princ #\Newline))
-
-(defmethod emit-token ((token crlf-newline))
-  `(princ ,crlf))
 
 (defmethod emit-token ((token tag))
   `(multiple-value-bind (dat find)
