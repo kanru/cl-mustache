@@ -339,7 +339,7 @@
 (defun parse-key (string)
   (loop for start = 0 then (1+ finish)
         for finish = (position #\. string :start start)
-        collecting (intern (string-upcase (subseq string start finish)) :keyword)
+        collect (intern (string-upcase (subseq string start finish)) :keyword)
         until (null finish)))
 
 (defun save-hash-table (source)
