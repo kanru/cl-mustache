@@ -535,6 +535,9 @@
 
 ;;; Interfaces
 
+(defun mustache-version ()
+  "Mustache v1.0")
+
 (defgeneric mustache-compile (template)
   (:documentation "Return a compiled rendering function."))
 

@@ -32,7 +32,8 @@
 
 (defpackage #:mustache
   (:use #:cl)
-  (:export #:mustache-context
+  (:export #:mustache-version
+           #:mustache-context
            #:mustache-compile
            #:mustache-render
            #:defmustache))
