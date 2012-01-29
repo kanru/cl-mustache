@@ -59,15 +59,21 @@
                         :test #'json-file-p)
     specs))
 
-(defmacro test-result (expected template data partials)
-  `(handler-case (string= ,expected (mustache-render ,template (mustache-context :data ,data :partials ,partials)))
-     (error (condition)
-       (declare (ignore condition))
-       :unexpected-test-failure)
-     (:no-error (result)
-       (if result
-           :test-passed
-           :test-failure))))
+(defun compile-lambda (data)
+  (let* ((lambda (cdr (assoc :lambda data)))
+         (lisp (cdr (assoc :lisp lambda))))
+    (if lisp
+        (append data (acons :lambda (eval (read-from-string lisp)) nil))
+        data)))
+
+(defun test-result (expected template data partials)
+  (let ((result (ignore-errors (mustache-render template (mustache-context :data (compile-lambda data) :partials partials)))))
+    (if result
+        (list (if (string= expected result)
+                  :test-passed
+                  :test-failure)
+              result)
+        (list :unexpected-test-failure ""))))
 
 (defun test-specs (specs)
   (loop for spec in specs
@@ -99,7 +105,7 @@
       (:body
        (:table
         (loop
-          for (name description result template expected data partials) in results
+          for (name description (result r) template expected data partials) in results
           do (cl-who:htm
               (:tr
                (:td (cl-who:fmt name))
@@ -110,12 +116,10 @@
                  (:tr
                   (:td (:pre (cl-who:fmt template)))
                   (:td (:pre (cl-who:fmt expected)))
-                  (:td (:pre (cl-who:fmt (or (ignore-errors
-                                              (mustache-render template (make-instance 'context :data data :partials partials)))
-                                             ""))))))))))))))
+                  (:td (:pre (cl-who:fmt (or r ""))))))))))))))
 
 (defun text-format-test-results (s results)
-  (loop for (name desc result template expected data) in results
+  (loop for (name desc (result _) template expected data) in results
         do (case result
              (:test-passed (format s "."))
              (t (format s "~&~A [~A]~%`--> ~A~&" name result desc)))))

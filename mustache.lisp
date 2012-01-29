@@ -29,7 +29,7 @@
 
 ;;;; TODO:
 ;;;
-;;; * Lambdas
+;;; * Lambda sections
 ;;; * Optimize compiled renderer
 
 ;;;; Code:
@@ -450,6 +450,15 @@
   (declare (ignore escapep))
   (loop for token across data
         do (print-token token context)))
+
+(defmethod print-data ((data function) escapep &optional context)
+  (let* ((value (format nil "~a" (funcall data)))
+         (fun (mustache-compile value))
+         (output (with-output-to-string (*standard-output*)
+                   (funcall fun context))))
+    (if escapep
+        (princ (escape output))
+        (princ output))))
 
 (defmethod print-data (token escapep &optional context)
   (declare (ignore escapep context))
