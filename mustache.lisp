@@ -29,7 +29,7 @@
 
 ;;;; TODO:
 ;;;
-;;; * Lambda sections
+;;; * Optimize lambda sections
 ;;; * Optimize compiled renderer
 
 ;;;; Code:
@@ -91,22 +91,31 @@
 (defclass partial-tag (can-standalone-tag) ())
 
 (defclass section-start-tag (can-standalone-tag)
-  ((falsey :initarg :falsey :initform nil :accessor falsey)))
+  ((falsey :initarg :falsey :initform nil :accessor falsey)
+   (end :initarg :end :initform nil :accessor end)
+   (open-delimiter :initarg :open-delimiter :initform nil :accessor open-delimiter)
+   (close-delimiter :initarg :close-delimiter :initform nil :accessor close-delimiter)))
 (defclass section-end-tag (can-standalone-tag)
-  ((falsey :initarg :falsey :initform nil :accessor falsey)))
+  ((start :initarg :start :initform nil :accessor start)))
 (defclass section-tag (can-standalone-tag)
   ((tokens :initarg :tokens :accessor tokens)
-   (falsey :initarg :falsey :initform nil :accessor falsey)))
+   (falsey :initarg :falsey :initform nil :accessor falsey)
+   (start :initarg :start :initform nil :accessor start)
+   (end :initarg :end :initform nil :accessor end)
+   (open-delimiter :initarg :open-delimiter :initform nil :accessor open-delimiter)
+   (close-delimiter :initarg :close-delimiter :initform nil :accessor close-delimiter)))
 
-(defun make-tag (&key text escape)
+(defun make-tag (&key text escape start end)
   (let ((funchar (char text 0))
         (tag-text (string-trim '(#\Space #\Tab) (subseq text 1)))
         (text (string-trim '(#\Space #\Tab) text)))
    (case funchar
      (#\& (make-instance 'ampersand-tag :text tag-text))
-     (#\# (make-instance 'section-start-tag :text tag-text))
-     (#\^ (make-instance 'section-start-tag :text tag-text :falsey t))
-     (#\/ (make-instance 'section-end-tag :text tag-text))
+     (#\# (make-instance 'section-start-tag :text tag-text :end end
+                                            :open-delimiter *open-delimiter*
+                                            :close-delimiter *close-delimiter*))
+     (#\^ (make-instance 'section-start-tag :text tag-text :end end :falsey t))
+     (#\/ (make-instance 'section-end-tag :text tag-text :start start))
      (#\! (make-instance 'comment-tag :text ""))
      (#\= (prog1
               (make-instance 'delimiter-tag :text tag-text)
@@ -172,7 +181,8 @@
              (1+ start)))))
 
 (defun read-tag (string &optional triple (start 0) (end (length string)))
-  (let ((tag-open (if triple
+  (let ((before-tag start)
+        (tag-open (if triple
                   *triple-open-delimiter*
                   *open-delimiter*))
         (tag-close (if triple
@@ -188,7 +198,9 @@
                    (loop-finish))
             collect char into text
             finally (return (values (make-tag :text (coerce text 'string)
-                                              :escape (not triple))
+                                              :escape (not triple)
+                                              :start before-tag
+                                              :end idx)
                                     idx))))))
 
 (defun read-token (string &optional (start 0) (end (length string)))
@@ -263,11 +275,15 @@
 (defun tag-match (tag1 tag2)
   (string-equal (text tag1) (text tag2)))
 
-(defun make-section-tag (tag tokens)
+(defun make-section-tag (start-tag end-tag tokens)
   (make-instance 'section-tag
                  :tokens tokens
-                 :text (text tag)
-                 :falsey (falsey tag)))
+                 :text (text start-tag)
+                 :falsey (falsey start-tag)
+                 :start (end start-tag)
+                 :end (start end-tag)
+                 :open-delimiter (open-delimiter start-tag)
+                 :close-delimiter (close-delimiter start-tag)))
 
 (defun push-group (acc)
   (cons nil acc))
@@ -281,25 +297,25 @@
 (defun top-group (acc)
   (reverse (car acc)))
 
-(defun push-section-tag (tag acc)
-  (push-token (make-section-tag tag (top-group acc))
+(defun push-section-tag (start-tag end-tag acc)
+  (push-token (make-section-tag start-tag end-tag (top-group acc))
               (pop-group acc)))
 
-(defun group-sections (tokens &optional end-tags acc)
+(defun group-sections (tokens &optional sections acc)
   (if (not tokens)
       (top-group acc)
       (let ((token (car tokens))
             (rest (cdr tokens))
-            (end-tag (car end-tags)))
+            (start-tag (car sections)))
         (typecase token
           (section-start-tag
-           (group-sections rest (cons token end-tags) (push-group acc)))
+           (group-sections rest (cons token sections) (push-group acc)))
           (section-end-tag
-           (when (tag-match token end-tag)
-             (group-sections rest (cdr end-tags)
-                             (push-section-tag end-tag acc))))
+           (when (tag-match token start-tag)
+             (group-sections rest (cdr sections)
+                             (push-section-tag start-tag token acc))))
           (otherwise
-           (group-sections rest end-tags (push-token token acc)))))))
+           (group-sections rest sections (push-token token acc)))))))
 
 (defun textp (token)
   (typep token 'text))
@@ -469,6 +485,13 @@
              (indent context))
     (funcall (car (indent context)) nil)))
 
+(defmethod call-lambda (lambda text &optional context)
+  (let* ((value (format nil "~a" (funcall lambda text)))
+         (fun (mustache-compile value))
+         (output (with-output-to-string (*standard-output*)
+                   (funcall fun context))))
+    (princ output)))
+
 ;;; Compiler
 
 (defgeneric emit-token (token))
@@ -505,6 +528,10 @@
                  (hash-table
                   (fun (make-context ctx context)))
                  (null)
+                 (function
+                  (let ((*default-open-delimiter* ,(open-delimiter token))
+                        (*default-close-delimiter* ,(close-delimiter token)))
+                    (call-lambda ctx (subseq template ,(start token) ,(end token)) context)))
                  (vector
                   (loop for ctx across ctx
                         do (fun (make-context ctx context))))
@@ -526,18 +553,19 @@
   (loop for token in tokens
         collect (emit-token token)))
 
-(defun emit-body (tokens)
+(defun emit-body (tokens template)
   `((let ((context (if (listp context)
                        (mustache-context :data context)
-                       context)))
-      (declare (ignorable context))
+                       context))
+          (template ,template))
+      (declare (ignorable context template))
       (with-standard-io-syntax
         ,@(emit-tokens tokens)))))
 
 ;;; Interfaces
 
 (defun mustache-type ()
-  "Mustache spec v1.1.2")
+  "Mustache spec v1.1.2+λ")
 
 (defun mustache-version ()
   "CL-MUSTACHE v0.9.0")
@@ -546,7 +574,7 @@
   (:documentation "Return a compiled rendering function."))
 
 (defmethod mustache-compile ((template string))
-  (compile nil `(lambda (&optional context) ,@(emit-body (parse template)))))
+  (compile nil `(lambda (&optional context) ,@(emit-body (parse template) template))))
 
 (defgeneric mustache-render (template &optional context)
   (:documentation "Render TEMPLATE with optional CONTEXT to string."))
@@ -558,7 +586,7 @@
 
 (defmacro defmustache (name template)
   "Define a named renderer of string TEMPLATE."
-  `(defun ,name (&optional context) ,@(emit-body (parse template))))
+  `(defun ,name (&optional context) ,@(emit-body (parse template) template)))
 
 ;;; mustache.lisp ends here
 
