@@ -8,7 +8,7 @@ framework-agnostic way to render logic-free views.
 As ctemplates says, "It emphasizes separating logic from presentation:
 it is impossible to embed application logic in this template language."
 
-CL-MUSTACHE is a Common Lisp implementation of Mustache v1.1.2. Tested with:
+CL-MUSTACHE is a Common Lisp implementation of Mustache v1.1.2+λ. Tested with:
 
  - SBCL 1.0.55
  - CLISP 2.49
