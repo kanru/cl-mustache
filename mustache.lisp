@@ -462,11 +462,6 @@
       (princ (escape data))
       (princ data)))
 
-(defmethod print-data ((data vector) escapep &optional context)
-  (declare (ignore escapep))
-  (loop for token across data
-        do (print-token token context)))
-
 (defmethod print-data ((data function) escapep &optional context)
   (let* ((value (format nil "~a" (funcall data)))
          (fun (mustache-compile value))
