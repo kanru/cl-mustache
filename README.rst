@@ -53,7 +53,7 @@ Or save the renderer for later use:
 
 ::
 
-    CL-USER> (setf view (mustache-compile "Hi {{person"}}!"))
+    CL-USER> (setf view (mustache-compile "Hi {{person}}!"))
 
 Or define static renderer function:
 
