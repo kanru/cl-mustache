@@ -152,18 +152,13 @@
 
 (defvar crlf (coerce '(#\Return #\Newline) 'string))
 
-(defun read-text (string &optional (start 0) (end (length string)))
+(defun read-text (type string &optional (start 0) (end (length string)))
   (loop for idx from start below end
-        while (text-char-p (char string idx))
+        while (case type
+                (text (text-char-p (char string idx)))
+                (whitespace (space-char-p (char string idx))))
         until (string-match *open-delimiter* string idx)
-        finally (return (values (make-instance 'text :text (subseq string start idx))
-                                idx))))
-
-(defun read-whitespace (string &optional (start 0) (end (length string)))
-  (loop for idx from start below end
-        while (space-char-p (char string idx))
-        until (string-match *open-delimiter* string idx)
-        finally (return (values (make-instance 'whitespace :text (subseq string start idx))
+        finally (return (values (make-instance type :text (subseq string start idx))
                                 idx))))
 
 (defun read-newline (string &optional (start 0) (end (length string)))
@@ -195,7 +190,7 @@
   (let ((char (char string start)))
     (cond
       ((space-char-p char)
-       (read-whitespace string start end))
+       (read-text 'whitespace string start end))
       ((newline-char-p char)
        (read-newline string start end))
       ((string-match *triple-open-delimiter* string start)
@@ -203,7 +198,7 @@
       ((string-match *open-delimiter* string start)
        (read-tag string nil start end))
       (t
-       (read-text string start end)))))
+       (read-text 'text string start end)))))
 
 (defun scan (string &optional (start 0) (end (length string)))
   (let ((idx start)
