@@ -154,20 +154,16 @@
 
 (defun read-text (string &optional (start 0) (end (length string)))
   (loop for idx from start below end
-        for char = (char string idx)
-        while (text-char-p char)
+        while (text-char-p (char string idx))
         until (string-match *open-delimiter* string idx)
-        collect char into text
-        finally (return (values (make-instance 'text :text (coerce text 'string))
+        finally (return (values (make-instance 'text :text (subseq string start idx))
                                 idx))))
 
 (defun read-whitespace (string &optional (start 0) (end (length string)))
   (loop for idx from start below end
-        for char = (char string idx)
-        while (space-char-p char)
+        while (space-char-p (char string idx))
         until (string-match *open-delimiter* string idx)
-        collect char into text
-        finally (return (values (make-instance 'whitespace :text (coerce text 'string))
+        finally (return (values (make-instance 'whitespace :text (subseq string start idx))
                                 idx))))
 
 (defun read-newline (string &optional (start 0) (end (length string)))
@@ -182,26 +178,18 @@
 
 (defun read-tag (string &optional triple (start 0) (end (length string)))
   (let ((before-tag start)
-        (tag-open (if triple
-                  *triple-open-delimiter*
-                  *open-delimiter*))
-        (tag-close (if triple
-                   *triple-close-delimiter*
-                   *close-delimiter*)))
+        (tag-open (if triple *triple-open-delimiter* *open-delimiter*))
+        (tag-close (if triple *triple-close-delimiter* *close-delimiter*)))
     (when (string-match tag-open string start)
       (incf start (length tag-open))
       (loop for idx from start below end
-            for char = (char string idx)
-            when (string-match tag-close string idx)
-              do (progn
-                   (incf idx (length tag-close))
-                   (loop-finish))
-            collect char into text
-            finally (return (values (make-tag :text (coerce text 'string)
-                                              :escape (not triple)
-                                              :start before-tag
-                                              :end idx)
-                                    idx))))))
+            until (string-match tag-close string idx)
+            finally (let ((endpos (+ idx (length tag-close))))
+                      (return (values (make-tag :text (subseq string start idx)
+                                                :escape (not triple)
+                                                :start before-tag
+                                                :end endpos)
+                                      endpos)))))))
 
 (defun read-token (string &optional (start 0) (end (length string)))
   (let ((char (char string start)))
