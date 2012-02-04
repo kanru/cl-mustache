@@ -31,6 +31,7 @@
 ;;;
 ;;; * Optimize lambda sections
 ;;; * Optimize compiled renderer
+;;; * Stream input/output
 
 ;;;; Code:
 
@@ -404,11 +405,25 @@
 
 ;;; Partials
 
+(defvar *load-path* (list *default-pathname-defaults*))
+(defvar *default-pathname-type* "mustache")
+
+(defun locate-file (filename)
+  (labels ((filename (path filename)
+           (merge-pathnames
+            path (make-pathname
+                  :type *default-pathname-type*
+                  :defaults (fad:pathname-as-file filename))))
+           (file-exists-p (path)
+             (fad:file-exists-p (filename path filename))))
+      (some #'file-exists-p *load-path*)))
+
 (defun read-partial (filename &optional context)
-  (with-open-file (stream filename :if-does-not-exist nil)
+  (with-open-file (stream (locate-file filename) :if-does-not-exist nil)
     (if stream
         (let ((buffer (make-string (file-length stream))))
-          (read-sequence buffer stream))
+          (read-sequence buffer stream)
+          buffer)
         (context-get filename (partials context)))))
 
 ;;; Rendering Utils
@@ -554,13 +569,21 @@
 (defmethod mustache-compile ((template string))
   (compile nil `(lambda (&optional context) ,@(emit-body (parse template) template))))
 
+(defmethod mustache-compile ((template pathname))
+  (with-open-file (stream template :if-does-not-exist nil)
+    (when stream
+      (let ((buffer (make-string (file-length stream))))
+        (read-sequence buffer stream)
+        (mustache-compile buffer)))))
+
 (defgeneric mustache-render (template &optional context)
   (:documentation "Render TEMPLATE with optional CONTEXT to string."))
 
-(defmethod mustache-render ((template string) &optional context)
+(defmethod mustache-render (template &optional context)
   (let ((fun (mustache-compile template)))
-    (with-output-to-string (*standard-output*)
-      (funcall fun context))))
+    (when fun
+      (with-output-to-string (*standard-output*)
+        (funcall fun context)))))
 
 (defmacro defmustache (name template)
   "Define a named renderer of string TEMPLATE."

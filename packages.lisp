@@ -32,7 +32,9 @@
 
 (defpackage #:mustache
   (:use #:cl)
-  (:export #:mustache-type
+  (:export #:*load-path*
+           #:*default-pathname-type*
+           #:mustache-type
            #:mustache-version
            #:mustache-context
            #:mustache-compile
