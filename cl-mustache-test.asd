@@ -3,4 +3,8 @@
   :author "Kan-Ru Chen <kanru@kanru.info>"
   :licence "MIT/Expat"
   :components ((:file "test"))
-  :depends-on ("cl-mustache" "cl-json" "cl-who" "com.gigamonkeys.pathnames" "toot"))
+  :depends-on ("cl-mustache"
+               "cl-json"
+               "monkeylib-html"
+               "com.gigamonkeys.pathnames"
+               "toot"))

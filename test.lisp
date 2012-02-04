@@ -33,6 +33,10 @@
   (:use :cl :mustache)
   (:import-from #:com.gigamonkeys.pathnames
                 #:walk-directory)
+  (:import-from #:monkeylib-html
+                #:emit-html)
+  (:import-from #:monkeylib-text-output
+                #:*text-output*)
   (:export #:run-test
            #:start-test-server
            #:stop-test-server
@@ -96,29 +100,29 @@
   (toot:stop-acceptor *test-acceptor*))
 
 (defun html-format-test-results (s results)
-  (cl-who:with-html-output (s)
-    "<!doctype html>"
-    (:html
-      (:head
-       (:style :type "text/css"
-               ".TEST-PASSED { background-color: #0f0; }"
-               ".TEST-FAILURE { background-color: #f00; }"
-               ".UNEXPECTED-TEST-FAILURE { background-color: #ff0; }"))
-      (:body
-       (:table
-        (loop
-          for (name description (result r) template expected data partials) in results
-          do (cl-who:htm
-              (:tr
-               (:td (cl-who:fmt name))
-               (:td (cl-who:fmt description))
-               (:td :class result (cl-who:fmt (string result))))
-              (when (not (eq result :test-passed))
-                (cl-who:htm
-                 (:tr
-                  (:td (:pre (cl-who:fmt template)))
-                  (:td (:pre (cl-who:fmt expected)))
-                  (:td (:pre (cl-who:fmt (or r ""))))))))))))))
+  (let ((*text-output* s))
+    (emit-html
+     `(:progn
+        (:noescape "<!doctype html>")
+        (:html
+          (:head
+           (:style :type "text/css"
+                   ".TEST-PASSED { background-color: #0f0; }"
+                   ".TEST-FAILURE { background-color: #f00; }"
+                   ".UNEXPECTED-TEST-FAILURE { background-color: #ff0; }"))
+          (:body
+           (:table
+            ,@(loop
+                for (name description (result r) template expected data partials) in results
+                collect `(:tr
+                          (:td ,name)
+                          (:td ,description)
+                          (:td :class ,result ,result))
+                when (not (eq result :test-passed))
+                  collect `(:tr
+                            (:td (:pre ,template))
+                            (:td (:pre ,expected))
+                            (:td (:pre ,(or r ""))))))))))))
 
 (defun text-format-test-results (s results)
   (loop for (name desc (result _) template expected data) in results
