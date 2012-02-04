@@ -413,18 +413,21 @@
            (merge-pathnames
             path (make-pathname
                   :type *default-pathname-type*
-                  :defaults (fad:pathname-as-file filename))))
-           (file-exists-p (path)
-             (fad:file-exists-p (filename path filename))))
-      (some #'file-exists-p *load-path*)))
+                  :defaults (pathname-as-file filename))))
+           (dir-file-exists-p (path)
+             (file-exists-p (filename path filename))))
+      (some #'dir-file-exists-p *load-path*)))
 
 (defun read-partial (filename &optional context)
-  (with-open-file (stream (locate-file filename) :if-does-not-exist nil)
-    (if stream
-        (let ((buffer (make-string (file-length stream))))
-          (read-sequence buffer stream)
-          buffer)
-        (context-get filename (partials context)))))
+  (let ((from-context (context-get filename (partials context))))
+    (if from-context
+        from-context
+        (let ((pathname (locate-file filename)))
+          (when pathname
+            (with-open-file (stream pathname)
+              (let ((buffer (make-string (file-length stream))))
+                (read-sequence buffer stream)
+                buffer)))))))
 
 ;;; Rendering Utils
 

@@ -31,6 +31,8 @@
 
 (defpackage :mustache-test
   (:use :cl :mustache)
+  (:import-from #:com.gigamonkeys.pathnames
+                #:walk-directory)
   (:export #:run-test
            #:start-test-server
            #:stop-test-server
@@ -53,10 +55,10 @@
 
 (defun all-specs ()
   (let (specs)
-    (fad:walk-directory *spec-directory*
-                        (lambda (file)
-                          (push (utf8-json-decode file) specs))
-                        :test #'json-file-p)
+    (walk-directory *spec-directory*
+                    (lambda (file)
+                      (push (utf8-json-decode file) specs))
+                    :test #'json-file-p)
     specs))
 
 (defun compile-lambda (data)

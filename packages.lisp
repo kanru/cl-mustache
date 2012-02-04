@@ -32,6 +32,9 @@
 
 (defpackage #:mustache
   (:use #:cl)
+  (:import-from #:com.gigamonkeys.pathnames
+                #:file-exists-p
+                #:pathname-as-file)
   (:export #:*load-path*
            #:*default-pathname-type*
            #:mustache-type
