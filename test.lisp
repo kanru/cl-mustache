@@ -73,7 +73,7 @@
         data)))
 
 (defun test-result (expected template data partials)
-  (let ((result (ignore-errors (mustache-render template (mustache-context :data (compile-lambda data) :partials partials)))))
+  (let ((result (ignore-errors (mustache-render-to-string template (mustache-context :data (compile-lambda data) :partials partials)))))
     (if result
         (list (if (string= expected result)
                   :test-passed

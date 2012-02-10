@@ -37,11 +37,14 @@
                 #:pathname-as-file)
   (:export #:*load-path*
            #:*default-pathname-type*
+           #:*mustache-output*
            #:mustache-type
            #:mustache-version
            #:mustache-context
            #:mustache-compile
            #:mustache-render
+           #:mustache-render-to-string
+           #:mustache-render-to-stream
            #:defmustache))
 
 

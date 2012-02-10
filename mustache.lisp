@@ -31,7 +31,6 @@
 ;;;
 ;;; * Optimize lambda sections
 ;;; * Optimize compiled renderer
-;;; * Stream input/output
 
 ;;;; Code:
 
@@ -455,26 +454,24 @@
 (defmethod escapep ((object ampersand-tag)) nil)
 (defmethod (setf escapep) (new-value (object ampersand-tag)) nil)
 
+(defvar *mustache-output* *standard-output*)
+
 (defgeneric print-data (data escapep &optional context))
 
 (defmethod print-data ((data string) escapep &optional context)
   (declare (ignore context))
-  (if escapep
-      (princ (escape data))
-      (princ data)))
+  (princ (if escapep (escape data) data) *mustache-output*))
 
 (defmethod print-data ((data function) escapep &optional context)
   (let* ((value (format nil "~a" (funcall data)))
          (fun (mustache-compile value))
-         (output (with-output-to-string (*standard-output*)
+         (output (with-output-to-string (*mustache-output*)
                    (funcall fun context))))
-    (if escapep
-        (princ (escape output))
-        (princ output))))
+    (princ (if escapep (escape output) output) *mustache-output*)))
 
 (defmethod print-data (token escapep &optional context)
   (declare (ignore escapep context))
-  (princ token))
+  (princ token *mustache-output*))
 
 (defun print-indent (&optional context)
   (when (and context
@@ -484,16 +481,16 @@
 (defmethod call-lambda (lambda text &optional context)
   (let* ((value (format nil "~a" (funcall lambda text)))
          (fun (mustache-compile value))
-         (output (with-output-to-string (*standard-output*)
+         (output (with-output-to-string (*mustache-output*)
                    (funcall fun context))))
-    (princ output)))
+    (princ output *mustache-output*)))
 
 ;;; Compiler
 
 (defgeneric emit-token (token))
 
 (defmethod emit-token ((token text))
-  `(princ ,(text token)))
+  `(print-data ,(text token) nil nil))
 
 (defmethod emit-token ((token tag))
   `(multiple-value-bind (dat find)
@@ -580,13 +577,22 @@
         (mustache-compile buffer)))))
 
 (defgeneric mustache-render (template &optional context)
-  (:documentation "Render TEMPLATE with optional CONTEXT to string."))
+  (:documentation "Render TEMPLATE with optional CONTEXT to *mustache-output*"))
 
 (defmethod mustache-render (template &optional context)
   (let ((fun (mustache-compile template)))
     (when fun
-      (with-output-to-string (*standard-output*)
-        (funcall fun context)))))
+      (funcall fun context))))
+
+(defun mustache-render-to-string (template &optional context)
+  "Render TEMPLATE with optional CONTEXT to string."
+  (with-output-to-string (*mustache-output*)
+    (mustache-render template context)))
+
+(defun mustache-render-to-stream (stream template &optional context)
+  "Render TEMPLATE with optional CONTEXT to STREAM."
+  (let ((*mustache-output* stream))
+    (mustache-render template context)))
 
 (defmacro defmustache (name template)
   "Define a named renderer of string TEMPLATE."
