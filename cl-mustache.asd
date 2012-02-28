@@ -5,4 +5,4 @@
   :description "Mustache Template Renderer"
   :components ((:file "packages")
                (:file "mustache" :depends-on ("packages")))
-  :depends-on ("com.gigamonkeys.pathnames"))
+  :depends-on ("cl-fad" "alexandria"))

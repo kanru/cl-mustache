@@ -423,10 +423,7 @@
         from-context
         (let ((pathname (locate-file filename)))
           (when pathname
-            (with-open-file (stream pathname)
-              (let ((buffer (make-string (file-length stream))))
-                (read-sequence buffer stream)
-                buffer)))))))
+            (read-file-into-string pathname))))))
 
 ;;; Rendering Utils
 
@@ -570,11 +567,8 @@
   (compile nil `(lambda (&optional context) ,@(emit-body (parse template) template))))
 
 (defmethod mustache-compile ((template pathname))
-  (with-open-file (stream template :if-does-not-exist nil)
-    (when stream
-      (let ((buffer (make-string (file-length stream))))
-        (read-sequence buffer stream)
-        (mustache-compile buffer)))))
+  (let ((buffer (read-file-into-string template)))
+    (mustache-compile buffer)))
 
 (defgeneric mustache-render (template &optional context)
   (:documentation "Render TEMPLATE with optional CONTEXT to *mustache-output*"))

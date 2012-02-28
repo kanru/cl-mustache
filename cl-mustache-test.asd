@@ -6,5 +6,5 @@
   :depends-on ("cl-mustache"
                "cl-json"
                "monkeylib-html"
-               "com.gigamonkeys.pathnames"
+               "cl-fad"
                "toot"))
