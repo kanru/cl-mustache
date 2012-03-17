@@ -482,75 +482,76 @@
                    (funcall fun context))))
     (princ output *mustache-output*)))
 
-;;; Compiler
+;;; Renderer
 
-(defgeneric emit-token (token))
+(defgeneric render-token (token context template))
 
-(defmethod emit-token ((token text))
-  `(print-data ,(text token) nil nil))
+(defmethod render-token ((token text) context template)
+  (declare (ignore context template))
+  (print-data (text token) nil nil))
 
-(defmethod emit-token ((token tag))
-  `(multiple-value-bind (dat find)
-       (context-get ,(text token) context)
-     (when find (print-data dat ,(escapep token) context))))
+(defmethod render-token ((token tag) context template)
+  (declare (ignore template))
+  (multiple-value-bind (dat find)
+      (context-get (text token) context)
+    (when find
+      (print-data dat (escapep token) context))))
 
-(defmethod emit-token ((token partial-tag))
-  `(let ((fun (mustache-compile
-               (or (read-partial ,(text token) context) ""))))
-     (push (lambda (&optional context)
-             (declare (ignorable context))
-             ,@(emit-tokens (indent token)))
-           (indent context))
-     (funcall fun context)
-     (pop (indent context))))
+(defmethod render-token ((token partial-tag) context template)
+  (let ((fun (mustache-compile
+              (or (read-partial (text token) context) ""))))
+    (push (lambda (&optional context template)
+            (render-tokens (indent token) context template))
+          (indent context))
+    (funcall fun context)
+    (pop (indent context))))
 
-(defmethod emit-token ((token section-tag))
-  `(multiple-value-bind (ctx find)
-       (context-get ,(text token) context)
-     (when (or find ,(falsey token))
-       (flet ((fun (&optional context)
-                (declare (ignorable context))
-                ,@(emit-tokens (tokens token))))
-         ,(if (falsey token)
-              `(when (null ctx)
-                 (fun context))
-              `(typecase ctx
-                 (hash-table
-                  (fun (make-context ctx context)))
-                 (null)
-                 (function
-                  (let ((*default-open-delimiter* ,(open-delimiter token))
-                        (*default-close-delimiter* ,(close-delimiter token)))
-                    (call-lambda ctx (subseq template ,(start token) ,(end token)) context)))
-                 (vector
-                  (loop for ctx across ctx
-                        do (fun (make-context ctx context))))
-                 (t
-                  (fun context))))))))
+(defmethod render-token ((token section-tag) context template)
+  (multiple-value-bind (ctx find)
+      (context-get (text token) context)
+    (when (or find (falsey token))
+      (flet ((fun (&optional context template)
+               (render-tokens (tokens token) context template)))
+        (if (falsey token)
+            (when (null ctx)
+              (fun context template))
+            (typecase ctx
+              (hash-table
+               (fun (make-context ctx context) template))
+              (null)
+              (function
+               (let ((*default-open-delimiter* (open-delimiter token))
+                     (*default-close-delimiter* (close-delimiter token)))
+                 (call-lambda ctx (subseq template (start token) (end token)) context)
+                 ))
+              (vector
+               (loop for ctx across ctx
+                     do (fun (make-context ctx context) template)))
+              (t
+               (fun context template))))))))
 
-(defmethod emit-token ((token implicit-iterator-tag))
-  `(print-data (data context) ,(escapep token) context))
+(defmethod render-token ((token implicit-iterator-tag) context template)
+  (declare (ignore template))
+  (print-data (data context) (escapep token) context))
 
-(defmethod emit-token ((token beginning-of-line))
-  (declare (ignore token))
-  `(print-indent context))
+(defmethod render-token ((token beginning-of-line) context template)
+  (declare (ignore token template))
+  (print-indent context))
 
 ;; noop tokens
-(defmethod emit-token ((token noop))
-  `(values))
+(defmethod render-token ((token noop) context template)
+  (values))
 
-(defun emit-tokens (tokens)
+(defun render-tokens (tokens context template)
   (loop for token in tokens
-        collect (emit-token token)))
+        do (render-token token context template)))
 
-(defun emit-body (tokens template)
-  `((let ((context (if (listp context)
-                       (mustache-context :data context)
-                       context))
-          (template ,template))
-      (declare (ignorable context template))
-      (with-standard-io-syntax
-        ,@(emit-tokens tokens)))))
+(defun render-body (tokens context template)
+  (let ((context (if (listp context)
+                     (mustache-context :data context)
+                     context)))
+    (with-standard-io-syntax
+      (render-tokens tokens context template))))
 
 ;;; Interfaces
 
@@ -564,7 +565,9 @@
   (:documentation "Return a compiled rendering function."))
 
 (defmethod mustache-compile ((template string))
-  (compile nil `(lambda (&optional context) ,@(emit-body (parse template) template))))
+  (let ((tokens (parse template)))
+    (lambda (&optional context)
+      (render-body tokens context template))))
 
 (defmethod mustache-compile ((template pathname))
   (let ((buffer (read-file-into-string template)))
@@ -574,9 +577,7 @@
   (:documentation "Render TEMPLATE with optional CONTEXT to *mustache-output*"))
 
 (defmethod mustache-render (template &optional context)
-  (let ((fun (mustache-compile template)))
-    (when fun
-      (funcall fun context))))
+  (render-body (parse template) context template))
 
 (defun mustache-render-to-string (template &optional context)
   "Render TEMPLATE with optional CONTEXT to string."
@@ -590,7 +591,8 @@
 
 (defmacro defmustache (name template)
   "Define a named renderer of string TEMPLATE."
-  `(defun ,name (&optional context) ,@(emit-body (parse template) template)))
+  `(defun ,name (&optional context)
+     (render-body ,(parse template) context ,template)))
 
 ;;; mustache.lisp ends here
 
