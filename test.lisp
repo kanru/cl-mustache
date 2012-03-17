@@ -44,7 +44,12 @@
 
 (in-package :mustache-test)
 
-(defparameter *spec-directory* #P"spec/specs/")
+(defparameter *spec-directory*
+  (make-pathname
+   :directory
+   (append (pathname-directory
+            #.(or *load-truename* *compile-file-truename*))
+           '("spec" "specs"))))
 
 (defvar *test-acceptor* nil)
 
