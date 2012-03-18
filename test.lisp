@@ -31,12 +31,11 @@
 
 (defpackage :mustache-test
   (:use :cl :mustache)
-  (:import-from #:com.gigamonkeys.pathnames
+  (:import-from #:cl-fad
                 #:walk-directory)
-  (:import-from #:monkeylib-html
-                #:emit-html)
-  (:import-from #:monkeylib-text-output
-                #:*text-output*)
+  (:import-from #:cl-markup
+                #:markup
+                #:*output-stream*)
   (:export #:run-test
            #:start-test-server
            #:stop-test-server
@@ -105,29 +104,29 @@
   (toot:stop-acceptor *test-acceptor*))
 
 (defun html-format-test-results (s results)
-  (let ((*text-output* s))
-    (emit-html
-     `(:progn
-        (:noescape "<!doctype html>")
-        (:html
-          (:head
-           (:style :type "text/css"
-                   ".TEST-PASSED { background-color: #0f0; }"
-                   ".TEST-FAILURE { background-color: #f00; }"
-                   ".UNEXPECTED-TEST-FAILURE { background-color: #ff0; }"))
-          (:body
-           (:table
-            ,@(loop
-                for (name description (result r) template expected data partials) in results
-                collect `(:tr
-                          (:td ,name)
-                          (:td ,description)
-                          (:td :class ,result ,result))
-                when (not (eq result :test-passed))
-                  collect `(:tr
-                            (:td (:pre ,template))
-                            (:td (:pre ,expected))
-                            (:td (:pre ,(or r ""))))))))))))
+  (let ((*output-stream* s))
+    (write-string "<!doctype html>" *output-stream*)
+    (markup
+     (:html
+       (:head
+        (:style :type "text/css"
+                ".TEST-PASSED { background-color: #0f0; }"
+                ".TEST-FAILURE { background-color: #f00; }"
+                ".UNEXPECTED-TEST-FAILURE { background-color: #ff0; }"))
+       (:body
+        (:table
+         (loop
+           for (name description (result r) template expected data partials) in results
+           do (markup (:tr
+                       (:td name)
+                       (:td description)
+                       (:td :class result result)))
+           when (not (eq result :test-passed))
+             do (markup
+                 (:tr
+                  (:td (:pre template))
+                  (:td (:pre expected))
+                  (:td (:pre (or r ""))))))))))))
 
 (defun text-format-test-results (s results)
   (loop for (name desc (result _) template expected data) in results

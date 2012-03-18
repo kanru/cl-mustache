@@ -5,6 +5,6 @@
   :components ((:file "test"))
   :depends-on ("cl-mustache"
                "cl-json"
-               "monkeylib-html"
+               "cl-markup"
                "cl-fad"
                "toot"))
