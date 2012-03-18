@@ -72,6 +72,26 @@ Test It
     ;; or
     CL-USR> (mustache-test:start-test-server)
 
+Extend It (Experimental)
+========================
+
+Define your tag classes, tag character and render function:
+
+::
+
+    (in-package :mustache)
+    (defclass exec-tag (non-standalone-tag)
+      ((command :initarg :command :accessor command)))
+    (set-mustache-character
+      #\$
+      (lambda (raw-text arg-text escapep start end)
+        (make-instance 'exec-tag :command arg-text)))
+    ;; or
+    ;; (define-mustache-character #\$
+    ;;   (make-instance 'exec-tag :command arg-text))
+    (defmethod render-token ((token exec-tag) context template)
+       (print-data (run-program-output (command token)) t context))
+
 .. _ctemplate: http://code.google.com/p/google-ctemplate/
 .. _et: http://www.ivan.fomichev.name/2008/05/erlang-template-engine-prototype.html
 .. _Mustache: http://mustache.github.com/

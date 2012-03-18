@@ -105,24 +105,55 @@
    (open-delimiter :initarg :open-delimiter :initform nil :accessor open-delimiter)
    (close-delimiter :initarg :close-delimiter :initform nil :accessor close-delimiter)))
 
-(defun make-tag (&key text escape start end)
-  (let ((funchar (char text 0))
-        (tag-text (string-trim '(#\Space #\Tab) (subseq text 1)))
-        (text (string-trim '(#\Space #\Tab) text)))
-   (case funchar
-     (#\& (make-instance 'ampersand-tag :text tag-text))
-     (#\# (make-instance 'section-start-tag :text tag-text :end end
-                                            :open-delimiter *open-delimiter*
-                                            :close-delimiter *close-delimiter*))
-     (#\^ (make-instance 'section-start-tag :text tag-text :end end :falsey t))
-     (#\/ (make-instance 'section-end-tag :text tag-text :start start))
-     (#\! (make-instance 'comment-tag :text ""))
-     (#\= (prog1
-              (make-instance 'delimiter-tag :text tag-text)
-            (change-delimiter tag-text)))
-     (#\> (make-instance 'partial-tag :text tag-text))
-     (#\. (make-instance 'implicit-iterator-tag :text tag-text))
-     (t (make-instance 'normal-tag :text text :escape escape)))))
+(defvar *mustache-tag-table* (make-hash-table))
+
+(defun set-mustache-character (char new-function)
+  (setf (gethash char *mustache-tag-table*) new-function))
+
+(defun get-mustache-character (char)
+  (gethash char *mustache-tag-table*))
+
+(defun make-tag (&key raw-text escapep start end)
+  (let ((tag-fun (get-mustache-character (char raw-text 0)))
+        (tag-text (string-trim '(#\Space #\Tab) raw-text))
+        (arg-text (string-trim '(#\Space #\Tab) (subseq raw-text 1))))
+    (if tag-fun
+        (funcall tag-fun raw-text arg-text escapep start end)
+        (make-instance 'normal-tag :text tag-text :escape escapep))))
+
+(defmacro define-mustache-character (char &body body)
+  `(set-mustache-character
+    ,char (lambda (raw-text arg-text escapep start end)
+            (declare (ignorable raw-text arg-text escapep start end))
+            ,@body)))
+
+(define-mustache-character #\&
+  (make-instance 'ampersand-tag :text arg-text))
+
+(define-mustache-character #\#
+  (make-instance 'section-start-tag :text arg-text :end end
+                                    :open-delimiter *open-delimiter*
+                                    :close-delimiter *close-delimiter*))
+
+(define-mustache-character #\^
+  (make-instance 'section-start-tag :text arg-text :end end :falsey t))
+
+(define-mustache-character #\/
+  (make-instance 'section-end-tag :text arg-text :start start))
+
+(define-mustache-character #\!
+  (make-instance 'comment-tag :text ""))
+
+(define-mustache-character #\=
+  (prog1
+      (make-instance 'delimiter-tag :text arg-text)
+    (change-delimiter arg-text)))
+
+(define-mustache-character #\>
+  (make-instance 'partial-tag :text arg-text))
+
+(define-mustache-character #\.
+  (make-instance 'implicit-iterator-tag :text arg-text))
 
 (defmethod print-object ((object tag) stream)
   (print-unreadable-object (object stream :type t :identity t)
@@ -180,8 +211,8 @@
       (loop for idx from start below end
             until (string-match tag-close string idx)
             finally (let ((endpos (+ idx (length tag-close))))
-                      (return (values (make-tag :text (subseq string start idx)
-                                                :escape (not triple)
+                      (return (values (make-tag :raw-text (subseq string start idx)
+                                                :escapep (not triple)
                                                 :start before-tag
                                                 :end endpos)
                                       endpos)))))))
