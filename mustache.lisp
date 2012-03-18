@@ -457,14 +457,14 @@
 
 (defmethod print-data ((data string) escapep &optional context)
   (declare (ignore context))
-  (princ (if escapep (escape data) data) *mustache-output*))
+  (write-string (if escapep (escape data) data) *mustache-output*))
 
 (defmethod print-data ((data function) escapep &optional context)
   (let* ((value (format nil "~a" (funcall data)))
          (fun (mustache-compile value))
          (output (with-output-to-string (*mustache-output*)
                    (funcall fun context))))
-    (princ (if escapep (escape output) output) *mustache-output*)))
+    (write-string (if escapep (escape output) output) *mustache-output*)))
 
 (defmethod print-data (token escapep &optional context)
   (declare (ignore escapep context))
@@ -480,7 +480,7 @@
          (fun (mustache-compile value))
          (output (with-output-to-string (*mustache-output*)
                    (funcall fun context))))
-    (princ output *mustache-output*)))
+    (write-string output *mustache-output*)))
 
 ;;; Renderer
 
