@@ -1,5 +1,5 @@
 (asdf:defsystem cl-mustache
-  :version "0.9.0"
+  :version "0.9.1"
   :author "Kan-Ru Chen <kanru@kanru.info>"
   :licence "MIT/Expat"
   :description "Mustache Template Renderer"

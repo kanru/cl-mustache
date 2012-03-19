@@ -622,8 +622,10 @@
 
 (defmacro defmustache (name template)
   "Define a named renderer of string TEMPLATE."
-  `(defun ,name (&optional context)
-     (render-body ,(parse template) context ,template)))
+  (let ((obj (gensym)))
+    `(let ((,obj (parse ,template)))
+       (defun ,name (&optional context)
+         (render-body ,obj context ,template)))))
 
 ;;; mustache.lisp ends here
 
