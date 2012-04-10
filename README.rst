@@ -23,7 +23,7 @@ The different Mustache tags are documented at `mustache(5)`_.
 Install It
 ==========
 
-In the future
+Using quicklisp is recommended.
 
 ::
 
