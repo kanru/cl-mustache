@@ -59,7 +59,7 @@
 ;;; Parser
 
 (deftype space-char () '(member #\Space #\Tab))
-(deftype newline-char () '(member #\Newline #\Return))
+(deftype newline-char () '(member #\Linefeed #\Return))
 (deftype text-char () '(not (or space-char newline-char)))
 
 (defclass token () ())
@@ -70,9 +70,11 @@
   ((text :initarg :text :accessor text)))
 (defclass whitespace (text) ())
 (defclass newline (text)
-  ((text :initform (coerce '(#\Newline) 'string))))
+  ((text :initform (coerce '(#\Linefeed) 'string))))
+
+(defvar crlf (coerce '(#\Return #\Linefeed) 'string))
 (defclass crlf-newline (newline)
-  ((text :initform (coerce '(#\Return #\Newline) 'string))))
+  ((text :initform crlf)))
 
 (defclass tag (token)
   ((text :initarg :text :accessor text)
@@ -180,8 +182,6 @@
 
 (defun newline-char-p (char)
   (typep char 'newline-char))
-
-(defvar crlf (coerce '(#\Return #\Newline) 'string))
 
 (defun read-text (type string &optional (start 0) (end (length string)))
   (loop for idx from start below end
