@@ -372,20 +372,27 @@
         collect (intern (string-upcase (subseq string start finish)) :keyword)
         until (null finish)))
 
+(defun alistp (list)
+  "Poor man's alistp"
+  (and (listp list)
+       (consp (first list))
+       (atom (first (first list)))))
+
 (defun save-hash-table (source)
   (typecase source
     (string source)
     (null nil)
     (vector
-     (and (plusp (length source))
-          (map 'vector #'save-hash-table source)))
+     (when (plusp (length source))
+       (map 'vector #'save-hash-table source)))
     (list
-     (let ((table (make-hash-table)))
-       (dolist (cons source)
-         (setf (gethash (car cons) table) (save-hash-table (cdr cons))))
-       table))
-    (otherwise
-     source)))
+     (if (alistp source)
+         (let ((table (make-hash-table)))
+           (loop for (key . value) in source
+                 do (setf (gethash key table) (save-hash-table value)))
+           table)
+         (map 'vector #'save-hash-table source)))
+    (otherwise source)))
 
 (defun mustache-context (&key data partials)
   "Create mustache context from alist DATA."
