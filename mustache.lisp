@@ -555,7 +555,7 @@
                      (*default-close-delimiter* (close-delimiter token)))
                  (call-lambda ctx (subseq template (start token) (end token)) context)
                  ))
-              (vector
+              ((vector hash-table)
                (loop for ctx across ctx
                      do (fun (make-context ctx context) template)))
               (t
