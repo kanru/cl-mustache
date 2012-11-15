@@ -369,8 +369,12 @@
 (defun parse-key (string)
   (loop for start = 0 then (1+ finish)
         for finish = (position #\. string :start start)
-        collect (intern (string-upcase (subseq string start finish)) :keyword)
+        collect (string-upcase (subseq string start finish))
         until (null finish)))
+
+(defun key (token)
+  (check-type token token)
+  (parse-key (text token)))
 
 (defun alistp (list)
   "Poor man's alistp"
@@ -387,9 +391,10 @@
        (map 'vector #'save-hash-table source)))
     (list
      (if (alistp source)
-         (let ((table (make-hash-table)))
+         (let ((table (make-hash-table :test 'equal)))
            (loop for (key . value) in source
-                 do (setf (gethash key table) (save-hash-table value)))
+                 do (setf (gethash (string-upcase key) table)
+                          (save-hash-table value)))
            table)
          (map 'vector #'save-hash-table source)))
     (otherwise source)))
@@ -412,8 +417,20 @@
 (defgeneric context-get (key context)
   (:documentation "Get data from CONTEXT by KEY."))
 
+(defmethod context-get ((key string) (context null))
+  (declare (ignore key))
+  (values))
+
+(defmethod context-get ((key string) (context hash-table))
+  (gethash (string-upcase key) context))
+
 (defmethod context-get ((key string) context)
-  (context-get (parse-key key) context))
+  (multiple-value-bind (data find)
+      (context-get key (data context))
+    (if find
+        (values data find)
+        (when (next context)
+          (context-get key (next context))))))
 
 (defmethod context-get ((key list) context)
   (multiple-value-bind (data find)
@@ -422,23 +439,9 @@
         (context-get (cdr key) data)
         (values data find))))
 
-(defmethod context-get ((key symbol) (context hash-table))
-  (gethash key context))
-
-(defmethod context-get ((key symbol) (context context))
-  (multiple-value-bind (data find)
-      (context-get key (data context))
-    (if find
-        (values data find)
-        (when (next context)
-          (context-get key (next context))))))
-
 (defmethod context-get (key (context null))
   (declare (ignore key))
   (values))
-
-(defmethod (setf context-get) (value key context)
-  (setf (gethash key (data context)) value))
 
 ;;; Partials
 
@@ -531,7 +534,7 @@
 (defmethod render-token ((token tag) context template)
   (declare (ignore template))
   (multiple-value-bind (dat find)
-      (context-get (text token) context)
+      (context-get (key token) context)
     (when find
       (print-data dat (escapep token) context))))
 
@@ -546,7 +549,7 @@
 
 (defmethod render-token ((token section-tag) context template)
   (multiple-value-bind (ctx find)
-      (context-get (text token) context)
+      (context-get (key token) context)
     (when (or find (falsey token))
       (flet ((fun (&optional context template)
                (render-tokens (tokens token) context template)))
