@@ -7,6 +7,6 @@
                 :components ((:file "t/test")))
                (:module "t"
                 :depends-on ("base")
-                :components ((:file "spec"))))
+                :components ((:file "test-spec"))))
   :depends-on ("cl-mustache"
                "cl-test-more"))

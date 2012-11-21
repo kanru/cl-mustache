@@ -1,4 +1,4 @@
-;;;; gen-spec-test.lisp --- Test against the specs
+;;;; gen-test-spec.lisp --- Test against the specs
 
 ;;; Copyright (C) 2011, 2012  Kan-Ru Chen
 
@@ -90,7 +90,7 @@
             tests)
       (finalize))))
 
-;;; gen-spec-test.lisp ends here
+;;; gen-test-spec.lisp ends here
 
 ;;; Local Variables:
 ;;; mode: lisp
