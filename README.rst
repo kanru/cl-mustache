@@ -68,9 +68,7 @@ Test It
 ::
 
     CL-USR> (ql:quickload "cl-mustache-test")
-    CL-USR> (mustache-test:run-test)
-    ;; or
-    CL-USR> (mustache-test:start-test-server)
+    CL-USR> (mustache-test:run)
 
 Extend It (Experimental)
 ========================
