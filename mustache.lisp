@@ -486,8 +486,6 @@
               do (write-sequence (escape-char (char string pos)) out)
             while pos))))
 
-(defmethod escapep ((object ampersand-tag)) nil)
-
 (defvar *mustache-output* *standard-output*)
 
 (defgeneric print-data (data escapep &optional context))
