@@ -43,8 +43,8 @@
 (defparameter *default-triple-open-delimiter* "{{{")
 (defparameter *default-triple-close-delimiter* "}}}")
 
-(defvar *open-delimiter*)
-(defvar *close-delimiter*)
+(defvar *open-delimiter* *default-open-delimiter*)
+(defvar *close-delimiter* *default-close-delimiter*)
 (defvar *triple-open-delimiter* *default-triple-open-delimiter*)
 (defvar *triple-close-delimiter* *default-triple-close-delimiter*)
 
