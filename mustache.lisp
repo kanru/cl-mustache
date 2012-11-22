@@ -594,7 +594,7 @@
   "Mustache spec v1.1.2+λ")
 
 (defun mustache-version ()
-  "CL-MUSTACHE v0.9.0")
+  "CL-MUSTACHE v0.9.2")
 
 (defgeneric mustache-compile (template)
   (:documentation "Return a compiled rendering function."))
