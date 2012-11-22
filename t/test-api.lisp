@@ -72,7 +72,13 @@
                                                        ((item . "b"))
                                                        ((item . "c")))))))
           "abc"
-          "render context from liste")))
+          "render context from liste")
+
+      (is (mustache-render-to-string "{{escape}}"
+                                     (mustache-context
+                                      :data '((escape . "<>&\"'"))))
+          "&lt;&gt;&amp;&quot;&apos;"
+          "escape char")))
 
 ;;; test-api.lisp ends here
 
