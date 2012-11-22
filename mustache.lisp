@@ -78,7 +78,7 @@
 
 (defclass tag (token)
   ((text :initarg :text :accessor text)
-   (escape :initarg :escape :initform nil :accessor escapep)
+   (escape :initarg :escape :initform t :reader escapep)
    (standalone :initform nil :accessor standalone)
    (indent :initarg :indent :initform nil :accessor indent)
    (trail :initarg :trail :initform nil :accessor trail)))
@@ -87,7 +87,8 @@
 
 (defclass normal-tag (non-standalone-tag) ())
 (defclass implicit-iterator-tag (non-standalone-tag) ())
-(defclass ampersand-tag (non-standalone-tag) ())
+(defclass ampersand-tag (non-standalone-tag)
+  ((escape :initform nil)))
 (defclass delimiter-tag (can-standalone-tag noop) ())
 (defclass comment-tag (can-standalone-tag noop) ())
 (defclass partial-tag (can-standalone-tag) ())
@@ -439,10 +440,6 @@
         (context-get (cdr key) data)
         (values data find))))
 
-(defmethod context-get (key (context null))
-  (declare (ignore key))
-  (values))
-
 ;;; Partials
 
 (defvar *load-path* (list *default-pathname-defaults*))
@@ -490,7 +487,6 @@
             while pos))))
 
 (defmethod escapep ((object ampersand-tag)) nil)
-(defmethod (setf escapep) (new-value (object ampersand-tag)) nil)
 
 (defvar *mustache-output* *standard-output*)
 
