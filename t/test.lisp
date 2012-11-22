@@ -37,7 +37,8 @@
 (in-package #:mustache-test)
 
 (defun run ()
-  (plan 1)
+  (plan 2)
+  (run-test 'api)
   (run-test 'spec)
   (finalize))
 

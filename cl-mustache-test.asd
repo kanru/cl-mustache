@@ -10,6 +10,7 @@
                  (:module "tests"
                   :pathname ""
                   :depends-on ("base")
-                  :components ((:file "test-spec"))))))
+                  :components ((:file "test-spec")
+                               (:file "test-api"))))))
   :depends-on ("cl-mustache"
                "cl-test-more"))
