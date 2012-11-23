@@ -72,7 +72,6 @@ The syntax grammar is:
 (deftype text-char () '(not (or space-char newline-char)))
 
 (defclass token () ())
-(defclass noop () ())
 (defclass beginning-of-line (token) ())
 
 (defclass text (token)
@@ -98,8 +97,8 @@ The syntax grammar is:
 (defclass implicit-iterator-tag (non-standalone-tag) ())
 (defclass ampersand-tag (non-standalone-tag)
   ((escape :initform nil)))
-(defclass delimiter-tag (can-standalone-tag noop) ())
-(defclass comment-tag (can-standalone-tag noop) ())
+(defclass delimiter-tag (can-standalone-tag) ())
+(defclass comment-tag (can-standalone-tag) ())
 (defclass partial-tag (can-standalone-tag) ())
 
 (defclass section-start-tag (can-standalone-tag)
@@ -582,10 +581,6 @@ The syntax grammar is:
 (defmethod render-token ((token beginning-of-line) context template)
   (declare (ignore token template))
   (print-indent context))
-
-;; noop tokens
-(defmethod render-token ((token noop) context template)
-  (values))
 
 (defun render-tokens (tokens context template)
   (loop for token in tokens
