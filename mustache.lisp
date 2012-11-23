@@ -108,13 +108,8 @@ The syntax grammar is:
    (close-delimiter :initarg :close-delimiter :initform nil :accessor close-delimiter)))
 (defclass section-end-tag (can-standalone-tag)
   ((start :initarg :start :initform nil :accessor start)))
-(defclass section-tag (can-standalone-tag)
-  ((tokens :initarg :tokens :accessor tokens)
-   (falsey :initarg :falsey :initform nil :accessor falsey)
-   (start :initarg :start :initform nil :accessor start)
-   (end :initarg :end :initform nil :accessor end)
-   (open-delimiter :initarg :open-delimiter :initform nil :accessor open-delimiter)
-   (close-delimiter :initarg :close-delimiter :initform nil :accessor close-delimiter)))
+(defclass section-tag (section-start-tag section-end-tag)
+  ((tokens :initarg :tokens :accessor tokens)))
 
 (defvar *mustache-tag-table* (make-hash-table))
 
