@@ -31,6 +31,7 @@
 ;;;
 ;;; * Optimize lambda sections
 ;;; * Optimize compiled renderer
+;;; * Better error reporting
 
 ;;;; Code:
 
@@ -49,12 +50,20 @@
 (defvar *triple-close-delimiter* *default-triple-close-delimiter*)
 
 (defun change-delimiter (text)
-  (let* ((text (string-trim '(#\Space #\Tab #\=) text))
-         (left-end (position #\Space text))
-         (right-start (position #\Space text :from-end t))
-         (right-end (position #\= text :from-end t)))
-    (setf *open-delimiter* (subseq text 0 left-end))
-    (setf *close-delimiter* (subseq text (1+ right-start) right-end))))
+  "Change the mustache tag delimiter according to TEXT.
+The syntax grammar is:
+  delimiter-tag = left-d 1*space right-d
+  left-d        = *ALPHANUM
+  right-d       = *ALPHANUM
+  space         = #\\Space #\\Tab"
+  (let* ((left-edge (position #\Space text))
+         (right-edge (position #\Space text :from-end t)))
+    (unless (and left-edge right-edge
+                 (every #'space-char-p
+                        (subseq text left-edge right-edge)))
+      (error "Invalid delimiter tag ~a" text))
+    (setf *open-delimiter* (subseq text 0 left-edge))
+    (setf *close-delimiter* (subseq text (1+ right-edge)))))
 
 ;;; Parser
 
@@ -148,9 +157,10 @@
   (make-instance 'comment-tag :text ""))
 
 (define-mustache-character #\=
-  (prog1
-      (make-instance 'delimiter-tag :text arg-text)
-    (change-delimiter arg-text)))
+  (let ((arg-text (string-trim '(#\Space #\Tab #\=) arg-text)))
+    (prog1
+        (make-instance 'delimiter-tag :text arg-text)
+      (change-delimiter arg-text))))
 
 (define-mustache-character #\>
   (make-instance 'partial-tag :text arg-text))
