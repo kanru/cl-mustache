@@ -56,6 +56,7 @@ The syntax grammar is:
   left-d        = *ALPHANUM
   right-d       = *ALPHANUM
   space         = #\\Space #\\Tab"
+  (declare (type simple-string text))
   (let* ((left-edge (position #\Space text))
          (right-edge (position #\Space text :from-end t)))
     (unless (and left-edge right-edge
@@ -120,9 +121,11 @@ The syntax grammar is:
   (gethash char *mustache-tag-table*))
 
 (defun make-tag (&key raw-text escapep start end)
+  (declare (type simple-string raw-text))
   (let ((tag-fun (get-mustache-character (char raw-text 0)))
         (tag-text (string-trim '(#\Space #\Tab) raw-text))
         (arg-text (string-trim '(#\Space #\Tab) (subseq raw-text 1))))
+    (declare (type (or null (function (simple-string simple-string t t t))) tag-fun))
     (if tag-fun
         (funcall tag-fun raw-text arg-text escapep start end)
         (make-instance 'normal-tag :text tag-text :escape escapep))))
@@ -130,7 +133,8 @@ The syntax grammar is:
 (defmacro define-mustache-character (char &body body)
   `(set-mustache-character
     ,char (lambda (raw-text arg-text escapep start end)
-            (declare (ignorable raw-text arg-text escapep start end))
+            (declare (ignorable raw-text arg-text escapep start end)
+                     (type simple-string raw-text arg-text))
             ,@body)))
 
 (define-mustache-character #\&
@@ -174,8 +178,10 @@ The syntax grammar is:
 (defvar crlf-newline (make-instance 'crlf-newline))
 
 (defun string-match (pattern string &optional (start 0))
+  (declare (type simple-string pattern string))
   (let ((end2 (+ start (length pattern)))
         (len (length string)))
+    (declare (type fixnum end2 len))
     (and (>= len end2)
          (string= pattern string :start2 start :end2 end2))))
 
@@ -189,6 +195,7 @@ The syntax grammar is:
   (typep char 'newline-char))
 
 (defun read-text (type string &optional (start 0) (end (length string)))
+  (declare (type simple-string string))
   (loop for idx from start below end
         while (case type
                 (text (text-char-p (char string idx)))
@@ -197,8 +204,8 @@ The syntax grammar is:
         finally (return (values (make-instance type :text (subseq string start idx))
                                 idx))))
 
-(defun read-newline (string &optional (start 0) (end (length string)))
-  (declare (ignore end))
+(defun read-newline (string &optional (start 0))
+  (declare (type simple-string string))
   (cond
     ((string-match crlf string start)
      (values crlf-newline
@@ -208,6 +215,7 @@ The syntax grammar is:
              (1+ start)))))
 
 (defun read-tag (string &optional triple (start 0) (end (length string)))
+  (declare (type simple-string string))
   (let ((before-tag start)
         (tag-open (if triple *triple-open-delimiter* *open-delimiter*))
         (tag-close (if triple *triple-close-delimiter* *close-delimiter*)))
@@ -223,12 +231,13 @@ The syntax grammar is:
                                       endpos)))))))
 
 (defun read-token (string &optional (start 0) (end (length string)))
+  (declare (type simple-string string))
   (let ((char (char string start)))
     (cond
       ((space-char-p char)
        (read-text 'whitespace string start end))
       ((newline-char-p char)
-       (read-newline string start end))
+       (read-newline string start))
       ((string-match *triple-open-delimiter* string start)
        (read-tag string t start end))
       ((string-match *open-delimiter* string start)
@@ -237,6 +246,7 @@ The syntax grammar is:
        (read-text 'text string start end)))))
 
 (defun scan (string &optional (start 0) (end (length string)))
+  (declare (type simple-string string))
   (let ((idx start)
         (*open-delimiter* *default-open-delimiter*)
         (*close-delimiter* *default-close-delimiter*))
@@ -263,6 +273,7 @@ The syntax grammar is:
   (typep token 'tag))
 
 (defun collect-line (tokens)
+  (declare (type list tokens))
   (loop for start = 0 then (1+ finish)
         for finish = (position-if #'newlinep tokens :start start)
         when (subseq tokens start (and finish (1+ finish)))
@@ -278,6 +289,7 @@ The syntax grammar is:
                                (= 0 texts))))))
 
 (defun make-standalone-tag (tokens)
+  (declare (type list tokens))
   (let* ((pos (position-if #'tagp tokens))
          (tag (elt tokens pos)))
     (setf (indent tag) (subseq tokens 0 pos))
@@ -340,6 +352,7 @@ The syntax grammar is:
   (typep token 'text))
 
 (defun fold-text (tokens)
+  (declare (type list tokens))
   (loop for start = 0 then next
         for finish = (position-if (complement #'textp) tokens :start start)
         for next = (and finish (position-if #'textp tokens :start finish))
@@ -353,6 +366,7 @@ The syntax grammar is:
         while next))
 
 (defun parse (template)
+  (declare (type simple-string template))
   (group-sections (fold-text (trim-standalone (scan template)))))
 
 ;;; Context
@@ -372,6 +386,7 @@ The syntax grammar is:
          :accessor next)))
 
 (defun parse-key (string)
+  (declare (type simple-string string))
   (loop for start = 0 then (1+ finish)
         for finish = (position #\. string :start start)
         collect (string-upcase (subseq string start finish))
@@ -481,6 +496,7 @@ The syntax grammar is:
     (t (format nil "&#~d;" (char-code char)))))
 
 (defun escape (string)
+  (declare (type simple-string string))
   (flet ((needs-escape-p (char) (find char *char-to-escapes*)))
     (with-output-to-string (out)
       (loop for start = 0 then (1+ pos)
@@ -503,6 +519,7 @@ The syntax grammar is:
          (fun (mustache-compile value))
          (output (with-output-to-string (*mustache-output*)
                    (funcall fun context))))
+    (declare (type (function (t)) fun))
     (write-string (if escapep (escape output) output) *mustache-output*)))
 
 (defmethod print-data (token escapep &optional context)
@@ -519,6 +536,7 @@ The syntax grammar is:
          (fun (mustache-compile value))
          (output (with-output-to-string (*mustache-output*)
                    (funcall fun context))))
+    (declare (type (function (t)) fun))
     (write-string output *mustache-output*)))
 
 ;;; Renderer
@@ -539,6 +557,7 @@ The syntax grammar is:
 (defmethod render-token ((token partial-tag) context template)
   (let ((fun (mustache-compile
               (or (read-partial (text token) context) ""))))
+    (declare (type (function (t)) fun))
     (push (lambda (&optional context template)
             (render-tokens (indent token) context template))
           (indent context))
