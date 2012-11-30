@@ -580,8 +580,7 @@ The syntax grammar is:
               (function
                (let ((*default-open-delimiter* (open-delimiter token))
                      (*default-close-delimiter* (close-delimiter token)))
-                 (call-lambda ctx (subseq template (start token) (end token)) context)
-                 ))
+                 (call-lambda ctx (subseq template (start token) (end token)) context)))
               ((vector hash-table)
                (loop for ctx across ctx
                      do (fun (make-context ctx context) template)))
