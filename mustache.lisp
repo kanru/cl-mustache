@@ -609,7 +609,7 @@ The syntax grammar is:
 ;;; Interfaces
 
 (defun mustache-type ()
-  "Mustache spec v1.1.2+λ")
+  "Mustache spec v1.1.2, including lambdas")
 
 (defun mustache-version ()
   "CL-MUSTACHE v0.9.2")
