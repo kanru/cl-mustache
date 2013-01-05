@@ -11,6 +11,7 @@
                   :pathname ""
                   :depends-on ("base")
                   :components ((:file "test-spec")
-                               (:file "test-api"))))))
+                               (:file "test-api")
+                               (:static-file "test.mustache"))))))
   :depends-on ("cl-mustache"
                "cl-test-more"))
