@@ -43,8 +43,8 @@
                 (make-pathname
                  :directory (pathname-directory
                              #.(or *load-truename* *compile-file-truename*))
-                 :name "test-api"
-                 :type "lisp"))
+                 :name "test"
+                 :type "mustache"))
                'function
                "compile a file template")
 
