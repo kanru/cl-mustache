@@ -2,7 +2,7 @@
 (in-package :mustache-test)
 
 (deftest spec
- (plan 122)
+ (plan 124)
  (is
   (mustache-render-to-string "12345 {{! Comment Block! }} 67890"
    (mustache-context :data 'nil :partials 'nil))
@@ -1023,6 +1023,28 @@ End.
   "<yes>"
   (format nil "~A :: ~A" "Section"
           "Lambdas used for sections should receive the raw section string."))
+ ;;
+ (is
+  (mustache-render-to-string "{{#list}}{{#lambda}}{{x}}{{/lambda}} {{/list}}"
+   (mustache-context :data
+    `((:list . #(((:x . "1")) ((:x . "2"))))
+      (:lambda . ,(lambda (text) (format nil "Call~A" text))))
+    :partials 'nil))
+  "Call1 Call2 "
+  (format nil "~A :: ~A" "Nested Section - Multiple calls"
+          "Lambdas used within sections should receive the raw section string."))
+ (is
+  (mustache-render-to-string "{{#list}}{{#lambda}}{{x}}{{/lambda}} {{/list}}"
+   (mustache-context
+     :data
+     `((:parent . "Called")
+       (:list . #(((:x . "a")) ((:x . "b"))))
+       (:lambda . ,(lambda (text render) (format nil "{{> ~A-partial}}" (funcall render text)))))
+    :partials '((:a-partial . "{{parent}}A") (:b-partial . "{{parent}}B"))))
+  "CalledA CalledB "
+  (format nil "~A :: ~A" "Nested Section - Calls with renderer function"
+          "Lambdas can render text context sensitively."))
+ ;;
  (is
   (mustache-render-to-string "<{{lambda}}{{{lambda}}}"
    (mustache-context :data

@@ -532,7 +532,14 @@ The syntax grammar is:
     (funcall (car (indent context)) nil)))
 
 (defmethod call-lambda (lambda text &optional context)
-  (let* ((value (format nil "~a" (funcall lambda text)))
+  (let* ((value (format nil "~a" 
+                        ;; Pass in a context-sensitive renderer function if the function
+                        ;; can handle it.
+                        (handler-case (funcall lambda text 
+                                               (lambda (tmpl)
+                                                 (mustache-render-to-string tmpl context)))
+                          ((or program-error simple-program-error) ()
+                            (funcall lambda text)))))
          (fun (mustache-compile value))
          (output (with-output-to-string (*mustache-output*)
                    (funcall fun context))))
