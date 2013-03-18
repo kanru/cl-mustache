@@ -32,11 +32,6 @@
 
 (defpackage #:mustache
   (:use #:cl)
-  (:import-from #:cl-fad
-                #:file-exists-p
-                #:pathname-as-file)
-  (:import-from #:alexandria
-                #:read-file-into-string)
   (:export #:*load-path*
            #:*default-pathname-type*
            #:*mustache-output*

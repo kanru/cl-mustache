@@ -460,9 +460,9 @@ The syntax grammar is:
            (merge-pathnames
             path (make-pathname
                   :type *default-pathname-type*
-                  :defaults (pathname-as-file filename))))
+                  :defaults (fad:pathname-as-file filename))))
            (dir-file-exists-p (path)
-             (file-exists-p (filename path filename))))
+             (fad:file-exists-p (filename path filename))))
       (some #'dir-file-exists-p *load-path*)))
 
 (defun read-partial (filename &optional context)
@@ -471,7 +471,7 @@ The syntax grammar is:
         from-context
         (let ((pathname (locate-file filename)))
           (when pathname
-            (read-file-into-string pathname))))))
+            (alexandria:read-file-into-string pathname))))))
 
 ;;; Rendering Utils
 
@@ -608,7 +608,7 @@ The syntax grammar is:
       (render-body tokens context template))))
 
 (defmethod mustache-compile ((template pathname))
-  (let ((buffer (read-file-into-string template)))
+  (let ((buffer (alexandria:read-file-into-string template)))
     (mustache-compile buffer)))
 
 (defgeneric mustache-render (template &optional context)
