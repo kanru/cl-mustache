@@ -452,8 +452,10 @@ The syntax grammar is:
 
 ;;; Partials
 
-(defvar *load-path* (list *default-pathname-defaults*))
-(defvar *default-pathname-type* "mustache")
+(defvar *load-path* (list *default-pathname-defaults*)
+  "A list. The search pathes for partials.")
+(defvar *default-pathname-type* "mustache"
+  "The default file extension for partials.")
 
 (defun locate-file (filename)
   (labels ((filename (path filename)
@@ -496,7 +498,10 @@ The syntax grammar is:
               do (write-sequence (escape-char (char string pos)) out)
             while pos))))
 
-(defvar *mustache-output* *standard-output*)
+(defvar *mustache-output* *standard-output*
+  "The default output stream for mustache rendering. Bind this
+variable before calling mustache-rendering and friends. Default is
+*standard-output*.")
 
 (defgeneric print-data (data escapep &optional context))
 
@@ -594,9 +599,11 @@ The syntax grammar is:
 ;;; Interfaces
 
 (defun mustache-type ()
+  "Return the implemented mustache spec version."
   "Mustache spec v1.1.2, including lambdas")
 
 (defun mustache-version ()
+  "Return the CL-MUSTACHE version."
   "CL-MUSTACHE v0.9.2")
 
 (defgeneric mustache-compile (template)
