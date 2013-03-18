@@ -418,6 +418,13 @@ The syntax grammar is:
           (setf (next ctx) context)))
     ctx))
 
+(defun ensure-context (maybe-context)
+  "Ensure MAYBE-CONTEXT is a valid context. If not then make one."
+  (ctypecase maybe-context
+    (list (mustache-context :data maybe-context))
+    (hash-table (make-instance 'context :data maybe-context))
+    (context maybe-context)))
+
 (defgeneric context-get (key context)
   (:documentation "Get data from CONTEXT by KEY."))
 
@@ -580,9 +587,7 @@ The syntax grammar is:
         do (render-token token context template)))
 
 (defun render-body (tokens context template)
-  (let ((context (if (listp context)
-                     (mustache-context :data context)
-                     context)))
+  (let ((context (ensure-context context)))
     (with-standard-io-syntax
       (render-tokens tokens context template))))
 

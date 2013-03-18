@@ -81,6 +81,13 @@
           ""
           "render a string of type '(array character (*))")
 
+      (is (mustache-render-to-string "{{var}}"
+                                     (let ((context (make-hash-table :test #'equal)))
+                                       (setf (gethash "VAR" context) "test")
+                                       context))
+          "test"
+          "use a hash-table as context.")
+
       (is (mustache-render-to-string "{{escape}}"
                                      (mustache-context
                                       :data '((escape . "<>&\"'"))))
