@@ -72,7 +72,14 @@
                                                        ((item . "b"))
                                                        ((item . "c")))))))
           "abc"
-          "render context from liste")
+          "render context from list")
+
+      (is (mustache-render-to-string "{{var}}"
+                                     `((:var . ,(make-array 0 :element-type 'character
+                                                              :adjustable t
+                                                              :fill-pointer 0))))
+          ""
+          "render a string of type '(array character (*))")
 
       (is (mustache-render-to-string "{{escape}}"
                                      (mustache-context
