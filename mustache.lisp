@@ -560,24 +560,25 @@ variable before calling mustache-rendering and friends. Default is
   (multiple-value-bind (ctx find)
       (context-get (key token) context)
     (when (or find (falsey token))
-      (flet ((fun (&optional context template)
+      (flet ((render (&optional context template)
                (render-tokens (tokens token) context template)))
         (if (falsey token)
             (when (null ctx)
-              (fun context template))
+              (render (make-context () context) template))
             (typecase ctx
               (hash-table
-               (fun (make-context ctx context) template))
-              (null)
+               (render (make-context ctx context) template))
               (function
                (let ((*default-open-delimiter* (open-delimiter token))
                      (*default-close-delimiter* (close-delimiter token)))
                  (call-lambda ctx (subseq template (start token) (end token)) context)))
-              ((vector hash-table)
-               (loop for ctx across ctx
-                     do (fun (make-context ctx context) template)))
+              (sequence
+               (map nil (lambda (ctx)
+                          (render (make-context ctx context) template))
+                     ctx))
+              (null)
               (t
-               (fun context template))))))))
+               (render context template))))))))
 
 (defmethod render-token ((token implicit-iterator-tag) context template)
   (declare (ignore template))
