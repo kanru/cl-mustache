@@ -92,7 +92,14 @@
                                      (mustache-context
                                       :data '((escape . "<>&\"'"))))
           "&lt;&gt;&amp;&quot;&apos;"
-          "escape char")))
+          "escape char")
+
+      (is (mustache-render-to-string "{{var}}"
+                                     (mustache-context
+                                      :data '((var . "pass")
+                                              (var . "fail"))))
+          "pass"
+          "use alist as context, the first match should shadow the rest.")))
 
 ;;; test-api.lisp ends here
 

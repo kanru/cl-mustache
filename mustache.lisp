@@ -396,7 +396,7 @@ The syntax grammar is:
     (list
      (if (alistp source)
          (let ((table (make-hash-table :test 'equal)))
-           (loop for (key . value) in source
+           (loop for (key . value) in (reverse source)
                  do (setf (gethash (string-upcase key) table)
                           (save-hash-table value)))
            table)
