@@ -457,15 +457,20 @@ The syntax grammar is:
 (defvar *default-pathname-type* "mustache"
   "The default file extension for partials.")
 
+(defun filename (filename)
+  (or (fad:file-exists-p filename)
+      (fad:file-exists-p (make-pathname :type *default-pathname-type*
+                                        :defaults filename))))
+
 (defun locate-file (filename)
   (labels ((filename (path filename)
-           (merge-pathnames
-            path (make-pathname
-                  :type *default-pathname-type*
-                  :defaults (fad:pathname-as-file filename))))
+             (merge-pathnames
+              path (make-pathname
+                    :type *default-pathname-type*
+                    :defaults (fad:pathname-as-file filename))))
            (dir-file-exists-p (path)
              (fad:file-exists-p (filename path filename))))
-      (some #'dir-file-exists-p *load-path*)))
+    (some #'dir-file-exists-p *load-path*)))
 
 (defun read-partial (filename &optional context)
   (let ((from-context (context-get filename (partials context))))
@@ -616,14 +621,18 @@ variable before calling mustache-rendering and friends. Default is
       (render-body tokens context template))))
 
 (defmethod mustache-compile ((template pathname))
-  (let ((buffer (alexandria:read-file-into-string template)))
+  (let ((buffer (alexandria:read-file-into-string (filename template))))
     (mustache-compile buffer)))
 
 (defgeneric mustache-render (template &optional context)
   (:documentation "Render TEMPLATE with optional CONTEXT to *mustache-output*"))
 
-(defmethod mustache-render (template &optional context)
+(defmethod mustache-render ((template string) &optional context)
   (render-body (parse template) context template))
+
+(defmethod mustache-render ((template pathname) &optional context)
+  (let ((buffer (alexandria:read-file-into-string (filename template))))
+    (mustache-render buffer context)))
 
 (defun mustache-render-to-string (template &optional context)
   "Render TEMPLATE with optional CONTEXT to string."
