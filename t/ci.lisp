@@ -28,9 +28,19 @@
 
 ;;;; Code:
 
+(defpackage :mustache-test-ci
+  (:use :cl))
+
+(in-package :mustache-test-ci)
+
+(defun exit (code)
+  (if (fboundp 'sb-ext:exit)
+      (sb-ext:exit :code code)
+      (sb-ext:quit :unix-status code)))
+
 (ql:quickload "cl-mustache-test")
 (unless (mustache-test:run)
-  (sb-posix:exit -1))
+  (exit -1))
 
 ;;; ci.lisp ends here
 
