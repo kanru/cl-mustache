@@ -30,7 +30,7 @@
 
 (ql:quickload "cl-mustache-test")
 (unless (mustache-test:run)
-  (sb-ext:exit :code -1))
+  (sb-posix:exit -1))
 
 ;;; ci.lisp ends here
 
