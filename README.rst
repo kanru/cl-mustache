@@ -2,6 +2,8 @@
 CL-MUSTACHE
 ========
 
+.. image:: https://travis-ci.org/kanru/cl-mustache.png?branch=master   :target: https://travis-ci.org/kanru/cl-mustache
+
 Inspired by ctemplate_ and et_, Mustache_ is a
 framework-agnostic way to render logic-free views.
 
