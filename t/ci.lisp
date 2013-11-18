@@ -34,8 +34,8 @@
 (in-package :mustache-test-ci)
 
 (defun exit (code)
-  (if (fboundp 'sb-ext:exit)
-      (sb-ext:exit :code code)
+  (if (find-symbol "EXIT" :sb-ext)
+      (funcall (find-symbol "EXIT" :sb-ext) :code code)
       (sb-ext:quit :unix-status code)))
 
 (ql:quickload "cl-mustache-test")
