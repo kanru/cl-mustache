@@ -522,8 +522,8 @@ variable before calling mustache-rendering and friends. Default is
     (write-string (if escapep (escape output) output) *mustache-output*)))
 
 (defmethod print-data (token escapep &optional context)
-  (declare (ignore escapep context))
-  (princ token *mustache-output*))
+  (declare (ignore context))
+  (print-data (princ-to-string token) escapep))
 
 (defun print-indent (&optional context)
   (when (and context
