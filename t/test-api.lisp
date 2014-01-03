@@ -94,6 +94,18 @@
           "&lt;&gt;&amp;&quot;&apos;"
           "escape char")
 
+      (is (mustache-render-to-string "{{unknown-type}}"
+                                     (mustache-context
+                                      :data `((unknown-type . ,(make-instance 'class)))))
+          "#&lt;CLASS NIL&gt;"
+          "escape non printable types")
+
+      (is (mustache-render-to-string "{{symbol}}"
+                                     (mustache-context
+                                      :data '((symbol . symbol))))
+          "SYMBOL"
+          "print symbols")
+
       (is (mustache-render-to-string "{{var}}"
                                      (mustache-context
                                       :data '((var . "pass")
