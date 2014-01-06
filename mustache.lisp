@@ -577,6 +577,8 @@ variable before calling mustache-rendering and friends. Default is
                (let ((*default-open-delimiter* (open-delimiter token))
                      (*default-close-delimiter* (close-delimiter token)))
                  (call-lambda ctx (subseq template (start token) (end token)) context)))
+              (string
+               (render context template))
               (sequence
                (map nil (lambda (ctx)
                           (render (make-context ctx context) template))
