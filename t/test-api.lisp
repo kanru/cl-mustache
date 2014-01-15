@@ -29,77 +29,79 @@
 ;;;; Code:
 
 (in-package :mustache-test)
+(defsuite api-suite (mustache-suite))
 
-(deftest api
-    (progn
-      (is-type (mustache-type) 'string
-               "mustache-type is a version string")
-      (is-type (mustache-version) 'string
-               "mustache-version is a version string")
+(deftest mustache-type (api-suite)
+  (assert-true (typep (mustache-type) 'string)))
 
-      (is-type (mustache-compile "string") 'function
-               "compile a string template")
-      (is-type (mustache-compile
-                (make-pathname
-                 :directory (pathname-directory
-                             #.(or *load-truename* *compile-file-truename*))
-                 :name "test"
-                 :type "mustache"))
-               'function
-               "compile a file template")
+(deftest mustache-version (api-suite)
+  (assert-true (typep (mustache-version) 'string)))
 
-      (is (with-output-to-string (*mustache-output*)
-            (mustache-render "TEMPLATE"))
-          "TEMPLATE"
-          "render to *mustache-output*")
-      (is (mustache-render-to-string "TEMPLATE")
-          "TEMPLATE"
-          "render to string")
-      (is (with-output-to-string (out)
-            (mustache-render-to-stream out "TEMPLATE"))
-          "TEMPLATE"
-          "render to out stream")
+(deftest mustache-compile-rv (api-suite)
+  (assert-true (typep (mustache-compile "string") 'function))
+  (assert-true (typep (mustache-compile
+                       (make-pathname
+                        :directory (pathname-directory
+                                    #.(or *load-truename* *compile-file-truename*))
+                        :name "test"
+                        :type "mustache"))
+                      'function)))
 
-      (defmustache test-defmustache "TEMPLATE")
-      (is (with-output-to-string (*mustache-output*)
-            (test-defmustache))
-          "TEMPLATE"
-          "defmustache works")
+(deftest render-to-*mustache-output* (api-suite)
+  (assert-equal "TEMPLATE"
+      (with-output-to-string (*mustache-output*)
+        (mustache-render "TEMPLATE"))))
 
-      (is (mustache-render-to-string "{{#list}}{{item}}{{/list}}"
-                                     (mustache-context
-                                      :data '((list . (((item . "a"))
-                                                       ((item . "b"))
-                                                       ((item . "c")))))))
-          "abc"
-          "render context from list")
+(deftest render-to-string (api-suite)
+  (assert-equal "TEMPLATE"
+      (mustache-render-to-string "TEMPLATE")))
 
-      (is (mustache-render-to-string "{{var}}"
-                                     `((:var . ,(make-array 0 :element-type 'character
-                                                              :adjustable t
-                                                              :fill-pointer 0))))
-          ""
-          "render a string of type '(array character (*))")
+(deftest render-to-stream (api-suite)
+  (assert-equal "TEMPLATE"
+      (with-output-to-string (out)
+        (mustache-render-to-stream out "TEMPLATE"))))
 
-      (is (mustache-render-to-string "{{var}}"
-                                     (let ((context (make-hash-table :test #'equal)))
-                                       (setf (gethash "VAR" context) "test")
-                                       context))
-          "test"
-          "use a hash-table as context.")
+(deftest defmustache (api-suite)
+  (defmustache test-defmustache "TEMPLATE")
+  (assert-equal "TEMPLATE"
+      (with-output-to-string (*mustache-output*)
+        (test-defmustache))))
 
-      (is (mustache-render-to-string "{{escape}}"
-                                     (mustache-context
-                                      :data '((escape . "<>&\"'"))))
-          "&lt;&gt;&amp;&quot;&apos;"
-          "escape char")
+(deftest render-context-from-list (api-suite)
+  (assert-equal "abc"
+      (mustache-render-to-string "{{#list}}{{item}}{{/list}}"
+                                 (mustache-context
+                                  :data '((list . (((item . "a"))
+                                                   ((item . "b"))
+                                                   ((item . "c")))))))))
 
-      (is (mustache-render-to-string "{{var}}"
-                                     (mustache-context
-                                      :data '((var . "pass")
-                                              (var . "fail"))))
-          "pass"
-          "use alist as context, the first match should shadow the rest.")))
+(deftest render-character-string (api-suite)
+  (assert-equal ""
+      (mustache-render-to-string "{{var}}"
+                                 `((:var . ,(make-array 0 :element-type 'character
+                                                          :adjustable t
+                                                          :fill-pointer 0))))))
+
+(deftest hash-table-context (api-suite)
+  (assert-equal "test"
+      (mustache-render-to-string "{{var}}"
+                                 (let ((context (make-hash-table :test #'equal)))
+                                   (setf (gethash "VAR" context) "test")
+                                   context))))
+
+(deftest escape-char (api-suite)
+  (assert-equal "&lt;&gt;&amp;&quot;&apos;"
+      (mustache-render-to-string "{{escape}}"
+                                 (mustache-context
+                                  :data '((escape . "<>&\"'"))))))
+
+(deftest alist-context (api-suite)
+  (assert-equal "pass"
+      (mustache-render-to-string "{{var}}"
+                                 (mustache-context
+                                  :data '((var . "pass")
+                                          (var . "fail"))))
+    "use alist as context, the first match should shadow the rest."))
 
 ;;; test-api.lisp ends here
 

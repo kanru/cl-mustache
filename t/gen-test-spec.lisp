@@ -1,6 +1,6 @@
 ;;;; gen-test-spec.lisp --- Test against the specs
 
-;;; Copyright (C) 2011, 2012  Kan-Ru Chen
+;;; Copyright (C) 2011, 2012, 2014  Kan-Ru Chen
 
 ;;; Author: Kan-Ru Chen <kanru@kanru.info>
 
@@ -64,7 +64,7 @@
          (partials (alexandria:assoc-value ,test :partials)))
      ,@body))
 
-(defmacro with-test-in-specs ((test) specs &body body)
+(defmacro do-test-in-specs ((test specs) &body body)
   (alexandria:with-gensyms (spec)
     `(loop for ,spec in ,specs
            do (loop for ,test across (alexandria:assoc-value ,spec :tests)
@@ -72,23 +72,26 @@
 
 ;; Generate test file
 
-(let ((*print-case* :downcase))
-  (pprint '(in-package :mustache-test))
-  (pprint
-   `(deftest spec
-        ,@(let (tests)
-            (with-test-in-specs (test)
-                                (all-specs)
-              (with-test (test)
-                (push
-                 `(is (mustache-render-to-string
-                       ,template
-                       (mustache-context :data ',data :partials ',partials))
-                      ,expected
-                      (format nil "~A :: ~A" ,name ,desc))
-                 tests)))
-            tests)
-      (finalize))))
+(let ((*print-case* :downcase)
+      (test# 0))
+  (prin1 '(in-package :mustache-test))
+  (pprint '(defsuite spec-suite (mustache-suite)))
+  (do-test-in-specs (test (all-specs))
+    (with-test (test)
+      (fresh-line)
+      (pprint
+       `(deftest ,(intern (format nil "test-spec-~2,'0D" test#)) (spec-suite)
+          (let* ((template ,template)
+                 (data ',data)
+                 (partials ',partials)
+                 (context (mustache-context :data data
+                                            :partials partials)))
+            (assert-equal
+                ,expected
+                (mustache-render-to-string template context)
+              ,(format nil "~A :: ~A" name desc)
+              template data partials)))))
+    (incf test#)))
 
 ;;; gen-test-spec.lisp ends here
 

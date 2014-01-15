@@ -4,14 +4,12 @@
   :licence "MIT/Expat"
   :components ((:module "t"
                 :components
-                ((:module "base"
-                  :pathname ""
-                  :components ((:file "test")))
+                ((:file "test")
                  (:module "tests"
                   :pathname ""
-                  :depends-on ("base")
+                  :depends-on ("test")
                   :components ((:file "test-spec")
                                (:file "test-api")
                                (:static-file "test.mustache"))))))
   :depends-on ("cl-mustache"
-               "cl-test-more"))
+               "clunit"))

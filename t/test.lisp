@@ -31,17 +31,14 @@
 (in-package :cl-user)
 
 (defpackage #:mustache-test
-  (:use #:cl #:cl-test-more #:mustache)
+  (:use #:cl #:clunit #:mustache)
   (:export #:run))
 
 (in-package #:mustache-test)
 
+(defsuite mustache-suite ())
 (defun run ()
-  "Run test!"
-  (plan 2)
-  (run-test 'api)
-  (run-test 'spec)
-  (finalize))
+  (run-suite 'mustache-suite))
 
 ;;; test.lisp ends here
 
