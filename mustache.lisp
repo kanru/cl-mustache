@@ -516,8 +516,7 @@ variable before calling mustache-rendering and friends. Default is
 
 (defmethod print-data ((data symbol) escapep &optional context)
   (declare (ignore context))
-  (write-string (if escapep (escape (string data)) data) *mustache-output*))
-
+  (print-data (string data) escapep))
 
 (defmethod print-data ((data function) escapep &optional context)
   (let* ((value (format nil "~a" (funcall data)))
