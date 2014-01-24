@@ -489,7 +489,6 @@ The syntax grammar is:
     (#\& "&amp;")
     (#\< "&lt;")
     (#\> "&gt;")
-    (#\' "&apos;")
     (#\" "&quot;")
     (t (format nil "&#~d;" (char-code char)))))
 
