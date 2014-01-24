@@ -91,7 +91,7 @@
       (is (mustache-render-to-string "{{escape}}"
                                      (mustache-context
                                       :data '((escape . "<>&\"'"))))
-          "&lt;&gt;&amp;&quot;&apos;"
+          "&lt;&gt;&amp;&quot;&#39;"
           "escape char")
 
       (is (mustache-render-to-string "{{var}}"
