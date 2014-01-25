@@ -30,6 +30,9 @@
 
 (in-package :mustache-test)
 
+(defclass unreadable-class ()
+  ())
+
 (deftest api
     (progn
       (is-type (mustache-type) 'string
@@ -93,6 +96,21 @@
                                       :data '((escape . "<>&\"'"))))
           "&lt;&gt;&amp;&quot;&#39;"
           "escape char")
+
+
+      (let ((unreadable-instance (make-instance 'unreadable-class)))
+        (is (mustache-render-to-string "!!{{unknown-type}}!!"
+                                      (mustache-context
+                                       :data `((unknown-type . ,unreadable-instance))))
+            (format nil "!!~a!!" (mustache::escape (princ-to-string unreadable-instance)))
+            "escape non printable types"))
+
+
+      (is (mustache-render-to-string "{{symbol}}"
+                                     (mustache-context
+                                      :data '((symbol . symbol))))
+          "SYMBOL"
+          "print symbols")
 
       (is (mustache-render-to-string "{{var}}"
                                      (mustache-context

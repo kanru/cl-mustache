@@ -513,6 +513,10 @@ variable before calling mustache-rendering and friends. Default is
   (declare (ignore context))
   (write-string (if escapep (escape data) data) *mustache-output*))
 
+(defmethod print-data ((data symbol) escapep &optional context)
+  (declare (ignore context))
+  (print-data (string data) escapep))
+
 (defmethod print-data ((data function) escapep &optional context)
   (let* ((value (format nil "~a" (funcall data)))
          (fun (mustache-compile value))
@@ -521,8 +525,8 @@ variable before calling mustache-rendering and friends. Default is
     (write-string (if escapep (escape output) output) *mustache-output*)))
 
 (defmethod print-data (token escapep &optional context)
-  (declare (ignore escapep context))
-  (princ token *mustache-output*))
+  (declare (ignore context))
+  (print-data (princ-to-string token) escapep))
 
 (defun print-indent (&optional context)
   (when (and context
