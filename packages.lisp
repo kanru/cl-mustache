@@ -34,6 +34,15 @@
   (:use #:cl)
   (:export #:*load-path*
            #:*default-pathname-type*
+           ;; new
+           #:*output-stream*
+           #:version
+           #:make-context
+           #:compile-template
+           #:render
+           #:render*
+           #:define
+           ;; old
            #:*mustache-output*
            #:mustache-type
            #:mustache-version

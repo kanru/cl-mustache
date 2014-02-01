@@ -31,7 +31,7 @@
 (in-package :cl-user)
 
 (defpackage #:mustache-test
-  (:use #:cl #:cl-test-more #:mustache)
+  (:use #:cl #:cl-test-more)
   (:export #:run))
 
 (in-package #:mustache-test)

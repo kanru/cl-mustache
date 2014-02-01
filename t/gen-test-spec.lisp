@@ -81,9 +81,9 @@
                                 (all-specs)
               (with-test (test)
                 (push
-                 `(is (mustache-render-to-string
+                 `(is (mustache:render*
                        ,template
-                       (mustache-context :data ',data :partials ',partials))
+                       (mustache:make-context :data ',data :partials ',partials))
                       ,expected
                       (format nil "~A :: ~A" ,name ,desc))
                  tests)))

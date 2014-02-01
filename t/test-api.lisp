@@ -32,14 +32,12 @@
 
 (deftest api
     (progn
-      (is-type (mustache-type) 'string
-               "mustache-type is a version string")
-      (is-type (mustache-version) 'string
-               "mustache-version is a version string")
+      (is-type (mustache:version) 'string
+               "(mustache:version) is a version string")
 
-      (is-type (mustache-compile "string") 'function
+      (is-type (mustache:compile-template "string") 'function
                "compile a string template")
-      (is-type (mustache-compile
+      (is-type (mustache:compile-template
                 (make-pathname
                  :directory (pathname-directory
                              #.(or *load-truename* *compile-file-truename*))
@@ -48,56 +46,50 @@
                'function
                "compile a file template")
 
-      (is (with-output-to-string (*mustache-output*)
-            (mustache-render "TEMPLATE"))
+      (is (with-output-to-string (mustache:*output-stream*)
+            (mustache:render "TEMPLATE"))
           "TEMPLATE"
-          "render to *mustache-output*")
-      (is (mustache-render-to-string "TEMPLATE")
+          "render to mustache:*output-stream*")
+      (is (mustache:render* "TEMPLATE")
           "TEMPLATE"
           "render to string")
       (is (with-output-to-string (out)
-            (mustache-render-to-stream out "TEMPLATE"))
+            (mustache:render "TEMPLATE" nil out))
           "TEMPLATE"
           "render to out stream")
 
-      (defmustache test-defmustache "TEMPLATE")
-      (is (with-output-to-string (*mustache-output*)
-            (test-defmustache))
+      (mustache:define test-mustache-define "TEMPLATE")
+      (is (with-output-to-string (mustache:*output-stream*)
+            (test-mustache-define))
           "TEMPLATE"
-          "defmustache works")
+          "mustache:define works")
 
-      (is (mustache-render-to-string "{{#list}}{{item}}{{/list}}"
-                                     (mustache-context
-                                      :data '((list . (((item . "a"))
-                                                       ((item . "b"))
-                                                       ((item . "c")))))))
+      (is (mustache:render* "{{#list}}{{item}}{{/list}}"
+                            '((list . (((item . "a"))
+                                       ((item . "b"))
+                                       ((item . "c"))))))
           "abc"
           "render context from list")
 
-      (is (mustache-render-to-string "{{var}}"
-                                     `((:var . ,(make-array 0 :element-type 'character
-                                                              :adjustable t
-                                                              :fill-pointer 0))))
+      (is (mustache:render* "{{var}}"
+                            `((:var . ,(make-array 0 :element-type 'character
+                                                     :adjustable t
+                                                     :fill-pointer 0))))
           ""
           "render a string of type '(array character (*))")
 
-      (is (mustache-render-to-string "{{var}}"
-                                     (let ((context (make-hash-table :test #'equal)))
-                                       (setf (gethash "VAR" context) "test")
-                                       context))
+      (is (mustache:render* "{{var}}"
+                            (let ((context (make-hash-table :test #'equal)))
+                              (setf (gethash "VAR" context) "test")
+                              context))
           "test"
           "use a hash-table as context.")
 
-      (is (mustache-render-to-string "{{escape}}"
-                                     (mustache-context
-                                      :data '((escape . "<>&\"'"))))
+      (is (mustache:render* "{{escape}}" '((escape . "<>&\"'")))
           "&lt;&gt;&amp;&quot;&apos;"
           "escape char")
 
-      (is (mustache-render-to-string "{{var}}"
-                                     (mustache-context
-                                      :data '((var . "pass")
-                                              (var . "fail"))))
+      (is (mustache:render* "{{var}}" '((var . "pass") (var . "fail")))
           "pass"
           "use alist as context, the first match should shadow the rest.")))
 

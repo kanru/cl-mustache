@@ -403,12 +403,7 @@ The syntax grammar is:
          (map 'vector #'save-hash-table source)))
     (otherwise source)))
 
-(defun mustache-context (&key data partials)
-  "Create mustache context from alist DATA."
-  (make-instance 'context :data (save-hash-table data)
-                          :partials (save-hash-table partials)))
-
-(defun make-context (&optional data context)
+(defun make-context-chain (&optional data context)
   (let ((ctx (make-instance 'context)))
     (if context
         (progn
@@ -421,7 +416,7 @@ The syntax grammar is:
 (defun ensure-context (maybe-context)
   "Ensure MAYBE-CONTEXT is a valid context. If not then make one."
   (ctypecase maybe-context
-    (list (mustache-context :data maybe-context))
+    (list (make-instance 'context :data (save-hash-table maybe-context)))
     (hash-table (make-instance 'context :data maybe-context))
     (context maybe-context)))
 
@@ -503,27 +498,32 @@ The syntax grammar is:
               do (write-sequence (escape-char (char string pos)) out)
             while pos))))
 
-(defvar *mustache-output* *standard-output*
+(defvar *output-stream* *standard-output*
   "The default output stream for mustache rendering. Bind this
 variable before calling mustache-rendering and friends. Default is
 *standard-output*.")
+
+(defun %output ()
+  (if (eq *mustache-output* *standard-output*)
+      *output-stream*
+      *mustache-output*))
 
 (defgeneric print-data (data escapep &optional context))
 
 (defmethod print-data ((data string) escapep &optional context)
   (declare (ignore context))
-  (write-string (if escapep (escape data) data) *mustache-output*))
+  (write-string (if escapep (escape data) data) (%output)))
 
 (defmethod print-data ((data function) escapep &optional context)
   (let* ((value (format nil "~a" (funcall data)))
-         (fun (mustache-compile value))
-         (output (with-output-to-string (*mustache-output*)
+         (fun (compile-template value))
+         (output (with-output-to-string (*output-stream*)
                    (funcall fun context))))
-    (write-string (if escapep (escape output) output) *mustache-output*)))
+    (write-string (if escapep (escape output) output) (%output))))
 
 (defmethod print-data (token escapep &optional context)
   (declare (ignore escapep context))
-  (princ token *mustache-output*))
+  (princ token (%output)))
 
 (defun print-indent (&optional context)
   (when (and context
@@ -532,10 +532,10 @@ variable before calling mustache-rendering and friends. Default is
 
 (defmethod call-lambda (lambda text &optional context)
   (let* ((value (format nil "~a" (funcall lambda text)))
-         (fun (mustache-compile value))
-         (output (with-output-to-string (*mustache-output*)
+         (fun (compile-template value))
+         (output (with-output-to-string (*output-stream*)
                    (funcall fun context))))
-    (write-string output *mustache-output*)))
+    (write-string output (%output))))
 
 ;;; Renderer
 
@@ -553,7 +553,7 @@ variable before calling mustache-rendering and friends. Default is
       (print-data dat (escapep token) context))))
 
 (defmethod render-token ((token partial-tag) context template)
-  (let ((fun (mustache-compile
+  (let ((fun (compile-template
               (or (read-partial (text token) context) ""))))
     (push (lambda (&optional context template)
             (render-tokens (indent token) context template))
@@ -569,17 +569,17 @@ variable before calling mustache-rendering and friends. Default is
                (render-tokens (tokens token) context template)))
         (if (falsey token)
             (when (null ctx)
-              (render (make-context () context) template))
+              (render (make-context-chain () context) template))
             (typecase ctx
               (hash-table
-               (render (make-context ctx context) template))
+               (render (make-context-chain ctx context) template))
               (function
                (let ((*default-open-delimiter* (open-delimiter token))
                      (*default-close-delimiter* (close-delimiter token)))
                  (call-lambda ctx (subseq template (start token) (end token)) context)))
               ((and (not string) sequence)
                (map nil (lambda (ctx)
-                          (render (make-context ctx context) template))
+                          (render (make-context-chain ctx context) template))
                      ctx))
               (null)
               (t
@@ -604,52 +604,48 @@ variable before calling mustache-rendering and friends. Default is
 
 ;;; Interfaces
 
-(defun mustache-type ()
-  "Return the implemented mustache spec version."
-  "Mustache spec v1.1.2, including lambdas")
-
-(defun mustache-version ()
+(defun version ()
   "Return the CL-MUSTACHE version."
-  "CL-MUSTACHE v0.9.2")
+  "CL-MUSTACHE v0.10.0 (Mustache spec v1.1.2, including lambdas)")
 
-(defgeneric mustache-compile (template)
+(defun make-context (&key data partials)
+  "Create mustache context from alist DATA."
+  (make-instance 'context :data (save-hash-table data)
+                          :partials (save-hash-table partials)))
+
+(defgeneric compile-template (template)
   (:documentation "Return a compiled rendering function."))
 
-(defmethod mustache-compile ((template string))
+(defmethod compile-template ((template string))
   (let ((tokens (parse template)))
-    (lambda (&optional context)
-      (render-body tokens context template))))
+    (lambda (&optional context output-stream)
+      (let ((*output-stream* (or output-stream *output-stream*)))
+        (render-body tokens context template)))))
 
-(defmethod mustache-compile ((template pathname))
+(defmethod compile-template ((template pathname))
   (let ((buffer (alexandria:read-file-into-string (filename template))))
-    (mustache-compile buffer)))
+    (compile-template buffer)))
 
-(defgeneric mustache-render (template &optional context)
-  (:documentation "Render TEMPLATE with optional CONTEXT to *mustache-output*"))
+(defgeneric render (template &optional context output-stream)
+  (:documentation
+   "Render TEMPLATE with optional CONTEXT to *OUTPUT* or OUTPUT-STREAM"))
 
-(defmethod mustache-render ((template string) &optional context)
-  (render-body (parse template) context template))
+(defmethod render ((template string) &optional context output-stream)
+  (let ((*output-stream* (or output-stream *output-stream*)))
+    (render-body (parse template) context template)))
 
-(defmethod mustache-render ((template pathname) &optional context)
+(defmethod render ((template pathname) &optional context output-stream)
   (let ((buffer (alexandria:read-file-into-string (filename template))))
-    (mustache-render buffer context)))
+    (render buffer context output-stream)))
 
-(defun mustache-render-to-string (template &optional context)
+(defun render* (template &optional context)
   "Render TEMPLATE with optional CONTEXT to string."
-  (with-output-to-string (*mustache-output*)
-    (mustache-render template context)))
+  (with-output-to-string (out)
+    (render template context out)))
 
-(defun mustache-render-to-stream (stream template &optional context)
-  "Render TEMPLATE with optional CONTEXT to STREAM."
-  (let ((*mustache-output* stream))
-    (mustache-render template context)))
-
-(defmacro defmustache (name template)
+(defmacro define (name template)
   "Define a named renderer of string TEMPLATE."
-  (let ((obj (gensym)))
-    `(let ((,obj (parse ,template)))
-       (defun ,name (&optional context)
-         (render-body ,obj context ,template)))))
+  `(compile ',name (compile-template ,template)))
 
 ;;; mustache.lisp ends here
 
