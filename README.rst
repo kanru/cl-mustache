@@ -49,20 +49,20 @@ To render the template:
 
 ::
 
-    CL-USER> (mustache-render "Hi {{person}}!" '((:person . "Mom")))
+    CL-USER> (mustache:render* "Hi {{person}}!" '((:person . "Mom")))
     "Hi Mom!"
 
 Or save the renderer for later use:
 
 ::
 
-    CL-USER> (setf view (mustache-compile "Hi {{person}}!"))
+    CL-USER> (setf view (mustache:compile-template "Hi {{person}}!"))
 
 Or define static renderer function:
 
 ::
 
-    CL-USER> (defmustache view "Hi {{person}}!")
+    CL-USER> (mustache:define view "Hi {{person}}!")
     CL-USER> (view context)
 
 Test It
