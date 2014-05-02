@@ -497,13 +497,14 @@ The syntax grammar is:
               do (write-sequence (escape-char (char string pos)) out)
             while pos))))
 
+(defvar *real-standard-output* *standard-output*)
 (defvar *output-stream* *standard-output*
   "The default output stream for mustache rendering. Bind this
 variable before calling mustache-rendering and friends. Default is
 *standard-output*.")
 
 (defun %output ()
-  (if (eq *mustache-output* *standard-output*)
+  (if (eq *mustache-output* *real-standard-output*)
       *output-stream*
       *mustache-output*))
 
