@@ -606,7 +606,15 @@ variable before calling mustache-rendering and friends. Default is
 
 (defun version ()
   "Return the CL-MUSTACHE version."
-  "CL-MUSTACHE v0.10.0 (Mustache spec v1.1.2, including lambdas)")
+  #.(format nil "CL-MUSTACHE ~A (Mustache spec ~A)"
+            (with-open-file (f (merge-pathnames "version.lisp-expr"
+                                                (or *compile-file-pathname*
+                                                    *load-truename*)))
+              (read f))
+            (with-open-file (f (merge-pathnames "spec-version.lisp-expr"
+                                                (or *compile-file-pathname*
+                                                    *load-truename*)))
+              (read f))))
 
 (defun make-context (&key data partials)
   "Create mustache context from alist DATA."
