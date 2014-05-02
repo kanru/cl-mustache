@@ -484,7 +484,6 @@ The syntax grammar is:
     (#\& "&amp;")
     (#\< "&lt;")
     (#\> "&gt;")
-    (#\' "&apos;")
     (#\" "&quot;")
     (t (format nil "&#~d;" (char-code char)))))
 
@@ -514,6 +513,10 @@ variable before calling mustache-rendering and friends. Default is
   (declare (ignore context))
   (write-string (if escapep (escape data) data) (%output)))
 
+(defmethod print-data ((data symbol) escapep &optional context)
+  (declare (ignore context))
+  (print-data (string data) escapep))
+
 (defmethod print-data ((data function) escapep &optional context)
   (let* ((value (format nil "~a" (funcall data)))
          (fun (compile-template value))
@@ -523,7 +526,7 @@ variable before calling mustache-rendering and friends. Default is
 
 (defmethod print-data (token escapep &optional context)
   (declare (ignore escapep context))
-  (princ token (%output)))
+  (print-data (princ-to-string token) (%output)))
 
 (defun print-indent (&optional context)
   (when (and context

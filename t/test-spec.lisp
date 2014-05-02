@@ -387,20 +387,26 @@ End.
   (format nil "~A :: ~A" "Basic Context Miss Interpolation"
           "Failed context lookups should default to empty strings."))
  (is
-  (mustache:render* "\"{{&power}} jiggawatts!\""
-   (mustache:make-context :data '((:power . 1.21)) :partials 'nil))
+  (with-standard-io-syntax
+    (mustache:render* "\"{{&power}} jiggawatts!\""
+                      (mustache:make-context :data '((:power . 1.21f0))
+                                             :partials 'nil)))
   "\"1.21 jiggawatts!\""
   (format nil "~A :: ~A" "Ampersand Decimal Interpolation"
           "Decimals should interpolate seamlessly with proper significance."))
  (is
-  (mustache:render* "\"{{{power}}} jiggawatts!\""
-   (mustache:make-context :data '((:power . 1.21)) :partials 'nil))
+  (with-standard-io-syntax
+    (mustache:render* "\"{{{power}}} jiggawatts!\""
+                      (mustache:make-context :data '((:power . 1.21f0))
+                                             :partials 'nil)))
   "\"1.21 jiggawatts!\""
   (format nil "~A :: ~A" "Triple Mustache Decimal Interpolation"
           "Decimals should interpolate seamlessly with proper significance."))
  (is
-  (mustache:render* "\"{{power}} jiggawatts!\""
-   (mustache:make-context :data '((:power . 1.21)) :partials 'nil))
+  (with-standard-io-syntax
+    (mustache:render* "\"{{power}} jiggawatts!\""
+                      (mustache:make-context :data '((:power . 1.21f0))
+                                             :partials 'nil)))
   "\"1.21 jiggawatts!\""
   (format nil "~A :: ~A" "Basic Decimal Interpolation"
           "Decimals should interpolate seamlessly with proper significance."))
@@ -855,8 +861,10 @@ End.
   (format nil "~A :: ~A" "Dotted Names - Truthy"
           "Dotted names should be valid for Section tags."))
  (is
-  (mustache:render* "\"{{#list}}({{.}}){{/list}}\""
-   (mustache:make-context :data '((:list . #(1.1 2.2 3.3 4.4 5.5))) :partials 'nil))
+  (with-standard-io-syntax
+    (mustache:render* "\"{{#list}}({{.}}){{/list}}\""
+                      (mustache:make-context :data '((:list . #(1.1f0 2.2f0 3.3f0 4.4f0 5.5f0)))
+                                             :partials 'nil)))
   "\"(1.1)(2.2)(3.3)(4.4)(5.5)\""
   (format nil "~A :: ~A" "Implicit Iterator - Decimal"
           "Implicit iterators should cast decimals to strings and interpolate."))

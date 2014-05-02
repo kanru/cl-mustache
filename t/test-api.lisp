@@ -30,6 +30,9 @@
 
 (in-package :mustache-test)
 
+(defclass unreadable-class ()
+  ())
+
 (deftest api
     (progn
       (is-type (mustache:version) 'string
@@ -86,12 +89,25 @@
           "use a hash-table as context.")
 
       (is (mustache:render* "{{escape}}" '((escape . "<>&\"'")))
-          "&lt;&gt;&amp;&quot;&apos;"
+          "&lt;&gt;&amp;&quot;&#39;"
           "escape char")
 
       (is (mustache:render* "{{var}}" '((var . "pass") (var . "fail")))
           "pass"
-          "use alist as context, the first match should shadow the rest.")))
+          "use alist as context, the first match should shadow the rest.")
+
+      (let ((unreadable-instance (make-instance 'unreadable-class)))
+        (is (mustache:render* "!!{{unknown-type}}!!"
+                              `((unknown-type . ,unreadable-instance)))
+            (format nil "!!~a!!" (mustache::escape
+                                  (princ-to-string unreadable-instance)))
+            "escape non printable types"))
+
+
+      (is (mustache:render* "{{symbol}}"
+                            '((symbol . symbol)))
+          "SYMBOL"
+          "print symbols")))
 
 ;;; test-api.lisp ends here
 
