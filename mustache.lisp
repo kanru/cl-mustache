@@ -639,7 +639,7 @@ variable before calling mustache-rendering and friends. Default is
 
 (defgeneric render (template &optional context output-stream)
   (:documentation
-   "Render TEMPLATE with optional CONTEXT to *OUTPUT* or OUTPUT-STREAM"))
+   "Render TEMPLATE with optional CONTEXT to *OUTPUT-STREAM* or OUTPUT-STREAM"))
 
 (defmethod render ((template string) &optional context output-stream)
   (let ((*output-stream* (or output-stream *output-stream*)))
