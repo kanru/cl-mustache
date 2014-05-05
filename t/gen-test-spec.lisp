@@ -49,10 +49,15 @@
 
 (defun all-specs ()
   (let (specs)
-    (fad:walk-directory *spec-directory*
-                    (lambda (file)
-                      (push (utf8-json-decode file) specs))
-                    :test #'json-file-p)
+    (uiop:collect-sub*directories
+     *spec-directory*
+     (constantly t)
+     (complement #'uiop:hidden-pathname-p)
+     (lambda (dir)
+       (mapc (lambda (file)
+               (when (json-file-p file)
+                 (push (utf8-json-decode file) specs)))
+             (uiop:directory-files dir))))
     specs))
 
 (defmacro with-test ((test) &body body)

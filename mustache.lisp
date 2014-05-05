@@ -453,18 +453,19 @@ The syntax grammar is:
   "The default file extension for partials.")
 
 (defun filename (filename)
-  (or (fad:file-exists-p filename)
-      (fad:file-exists-p (make-pathname :type *default-pathname-type*
-                                        :defaults filename))))
+  (or (uiop:file-exists-p filename)
+      (uiop:file-exists-p (make-pathname :type *default-pathname-type*
+                                         :defaults filename))))
 
 (defun locate-file (filename)
+  (uiop:ensure-pathname filename :want-file t)
   (labels ((filename (path filename)
              (merge-pathnames
               path (make-pathname
                     :type *default-pathname-type*
-                    :defaults (fad:pathname-as-file filename))))
+                    :defaults filename)))
            (dir-file-exists-p (path)
-             (fad:file-exists-p (filename path filename))))
+             (uiop:file-exists-p (filename path filename))))
     (some #'dir-file-exists-p *load-path*)))
 
 (defun read-partial (filename &optional context)

@@ -9,4 +9,4 @@
   :components ((:file "packages")
                (:file "mustache" :depends-on ("packages"))
                (:file "compat-api-v1" :depends-on ("mustache")))
-  :depends-on ("cl-fad" "alexandria"))
+  :depends-on ("uiop" "alexandria"))
