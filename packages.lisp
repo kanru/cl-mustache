@@ -36,6 +36,7 @@
            #:*default-pathname-type*
            ;; new
            #:*output-stream*
+           #:*context*
            #:version
            #:make-context
            #:compile-template

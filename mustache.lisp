@@ -356,6 +356,8 @@ The syntax grammar is:
 
 ;;; Context
 
+(defvar *context* nil "Current context for lambda section")
+
 (defclass context ()
   ((data :initarg :data
          :initform nil
@@ -520,11 +522,12 @@ variable before calling mustache-rendering and friends. Default is
   (print-data (string data) escapep))
 
 (defmethod print-data ((data function) escapep &optional context)
-  (let* ((value (format nil "~a" (funcall data)))
-         (fun (compile-template value))
-         (output (with-output-to-string (*output-stream*)
-                   (funcall fun context))))
-    (write-string (if escapep (escape output) output) (%output))))
+  (let ((*context* context))
+    (let* ((value (format nil "~a" (funcall data)))
+           (fun (compile-template value))
+           (output (with-output-to-string (*output-stream*)
+                     (funcall fun context))))
+      (write-string (if escapep (escape output) output) (%output)))))
 
 (defmethod print-data (token escapep &optional context)
   (declare (ignore escapep context))
@@ -536,11 +539,12 @@ variable before calling mustache-rendering and friends. Default is
     (funcall (car (indent context)) nil)))
 
 (defmethod call-lambda (lambda text &optional context)
-  (let* ((value (format nil "~a" (funcall lambda text)))
-         (fun (compile-template value))
-         (output (with-output-to-string (*output-stream*)
-                   (funcall fun context))))
-    (write-string output (%output))))
+  (let ((*context* context))
+    (let* ((value (format nil "~a" (funcall lambda text)))
+           (fun (compile-template value))
+           (output (with-output-to-string (*output-stream*)
+                     (funcall fun context))))
+      (write-string output (%output)))))
 
 ;;; Renderer
 
