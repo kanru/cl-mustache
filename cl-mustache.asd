@@ -1,8 +1,7 @@
 (asdf:defsystem cl-mustache
-  :version #.(with-open-file (f (merge-pathnames "version.lisp-expr"
-                                                 (or *compile-file-pathname*
-                                                     *load-truename*)))
-               (read f))
+  :version #.(with-open-file (stream (merge-pathnames "version.lisp-expr"
+                                                      *load-truename*))
+               (read stream))
   :author "Kan-Ru Chen <kanru@kanru.info>"
   :licence "MIT/Expat"
   :description "Mustache Template Renderer"
