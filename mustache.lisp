@@ -662,7 +662,8 @@ variable before calling mustache-rendering and friends. Default is
 
 (defmacro define (name template)
   "Define a named renderer of string TEMPLATE."
-  `(compile ',name (compile-template ,template)))
+  `(setf (symbol-function ',name)
+         (compile nil (compile-template ,template))))
 
 ;;; mustache.lisp ends here
 
