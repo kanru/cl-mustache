@@ -581,7 +581,7 @@ The syntax grammar is:
         from-context
         (let ((pathname (locate-file filename)))
           (when pathname
-            (alexandria:read-file-into-string pathname))))))
+            (uiop:read-file-string pathname))))))
 
 ;;; Rendering Utils
 
@@ -754,7 +754,7 @@ variable before calling mustache-rendering and friends. Default is
         (render-body tokens context template)))))
 
 (defmethod compile-template ((template pathname))
-  (let ((buffer (alexandria:read-file-into-string (filename template))))
+  (let ((buffer (uiop:read-file-string (filename template))))
     (compile-template buffer)))
 
 (defgeneric render (template &optional context output-stream)
@@ -766,7 +766,7 @@ variable before calling mustache-rendering and friends. Default is
     (render-body (parse template) context template)))
 
 (defmethod render ((template pathname) &optional context output-stream)
-  (let ((buffer (alexandria:read-file-into-string (filename template))))
+  (let ((buffer (uiop:read-file-string (filename template))))
     (render buffer context output-stream)))
 
 (defun render* (template &optional context)

@@ -8,4 +8,4 @@
   :components ((:file "packages")
                (:file "mustache" :depends-on ("packages"))
                (:file "compat-api-v1" :depends-on ("mustache")))
-  :depends-on ("uiop" "alexandria"))
+  :depends-on ("uiop"))
