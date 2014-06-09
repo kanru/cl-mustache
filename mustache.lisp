@@ -639,11 +639,11 @@ variable before calling mustache-rendering and friends. Default is
   (declare (ignore escapep context))
   (print-data (princ-to-string token) (%output)))
 
-(defun print-indent (&optional context)
+(defun print-indent (context template)
   (declare (type (or null context) context))
   (when (and context
              (indent context))
-    (funcall (car (indent context)) nil)))
+    (funcall (car (indent context)) nil template)))
 
 (defun call-lambda (lambda text &optional context)
   (declare (type function lambda)
@@ -674,7 +674,7 @@ variable before calling mustache-rendering and friends. Default is
 (defmethod render-token ((token partial-tag) context (template string))
   (let ((fun (compile-template
               (or (read-partial (text token) context) ""))))
-    (push (lambda (&optional context template)
+    (push (lambda (context template)
             (render-tokens (indent token) context template))
           (indent context))
     (funcall fun context)
@@ -684,7 +684,7 @@ variable before calling mustache-rendering and friends. Default is
   (multiple-value-bind (ctx find)
       (context-get (key token) context)
     (when (or find (falsey token))
-      (flet ((render (&optional context template)
+      (flet ((render (context template)
                (render-tokens (tokens token) context template)))
         (if (falsey token)
             (when (null ctx)
@@ -709,13 +709,13 @@ variable before calling mustache-rendering and friends. Default is
   (print-data (data context) (escapep token) context))
 
 (defmethod render-token ((token beginning-of-line) context (template string))
-  (declare (ignore token template))
-  (print-indent context))
+  (declare (ignore token))
+  (print-indent context template))
 
 (defun render-tokens (tokens context template)
   (declare (type list tokens)
            (type (or null context) context)
-           (type (or null string) template))
+           (type string template))
   (loop :for token :in tokens
         :do (render-token token context template)))
 
