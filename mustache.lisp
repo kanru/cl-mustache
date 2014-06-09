@@ -454,21 +454,20 @@ The syntax grammar is:
 (defvar *context* nil "Current context for lambda section")
 
 (defclass context ()
-  ((data :initarg :data
-         :initform nil
-         :accessor data)
-   (indent :type list
-           :initarg :indent
-           :initform nil
-           :accessor indent)
-   (partials :type list
-             :initarg :partials
-             :initform nil
-             :accessor partials)
-   (next :type (or null context)
-         :initarg :next
-         :initform nil
-         :accessor next)))
+  ((%data :initarg :data
+          :initform nil
+          :accessor data)
+   (%indent :type list
+            :initarg :indent
+            :initform nil
+            :accessor indent)
+   (%partials :initarg :partials
+              :initform nil
+              :accessor partials)
+   (%next :type (or null context)
+          :initarg :next
+          :initform nil
+          :accessor next)))
 
 (defun parse-key (string)
   (declare (type string string))
