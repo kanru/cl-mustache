@@ -353,8 +353,8 @@ The syntax grammar is:
   (declare (type list tokens))
   (when (eq (car tokens) beginning-of-line)
     (loop :for token :in tokens
-          :count (typep token 'can-standalone-tag) into tags
-          :count (typep token 'text-token) into texts
+          :count (typep token 'can-standalone-tag) :into tags
+          :count (typep token 'text-token) :into texts
           :finally (return (and (= 1 tags)
                                 (= 0 texts))))))
 
@@ -660,18 +660,18 @@ variable before calling mustache-rendering and friends. Default is
 
 (defgeneric render-token (token context template))
 
-(defmethod render-token ((token text) context template)
+(defmethod render-token ((token text) context (template string))
   (declare (ignore context template))
   (print-data (text token) nil nil))
 
-(defmethod render-token ((token tag) context template)
+(defmethod render-token ((token tag) context (template string))
   (declare (ignore template))
   (multiple-value-bind (dat find)
       (context-get (key token) context)
     (when find
       (print-data dat (escapep token) context))))
 
-(defmethod render-token ((token partial-tag) context template)
+(defmethod render-token ((token partial-tag) context (template string))
   (let ((fun (compile-template
               (or (read-partial (text token) context) ""))))
     (push (lambda (&optional context template)
@@ -680,7 +680,7 @@ variable before calling mustache-rendering and friends. Default is
     (funcall fun context)
     (pop (indent context))))
 
-(defmethod render-token ((token section-tag) context template)
+(defmethod render-token ((token section-tag) context (template string))
   (multiple-value-bind (ctx find)
       (context-get (key token) context)
     (when (or find (falsey token))
@@ -704,11 +704,11 @@ variable before calling mustache-rendering and friends. Default is
               (t
                (render context template))))))))
 
-(defmethod render-token ((token implicit-iterator-tag) context template)
+(defmethod render-token ((token implicit-iterator-tag) context (template string))
   (declare (ignore template))
   (print-data (data context) (escapep token) context))
 
-(defmethod render-token ((token beginning-of-line) context template)
+(defmethod render-token ((token beginning-of-line) context (template string))
   (declare (ignore token template))
   (print-indent context))
 
