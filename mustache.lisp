@@ -331,23 +331,18 @@ The syntax grammar is:
 ;;; Parser
 
 (deftype text-token ()
-  '(and token (not (or beginning-of-line can-standalone-tag newline whitespace))))
-
-(defun newlinep (token)
-  (declare (inline))
-  (typep token 'newline))
-
-(defun tagp (token)
-  (declare (inline))
-  (typep token 'tag))
+  '(and token
+        (not (or beginning-of-line can-standalone-tag newline whitespace))))
 
 (defun collect-line (tokens)
   (declare (type list tokens))
-  (loop :for start := 0 :then (1+ finish)
-        :for finish := (position-if #'newlinep tokens :start start)
-        :when (subseq tokens start (and finish (1+ finish)))
-          :collect it
-        :until (null finish)))
+  (flet ((newlinep (token)
+           (typep token 'newline)))
+    (loop :for start := 0 :then (1+ finish)
+          :for finish := (position-if #'newlinep tokens :start start)
+          :when (subseq tokens start (and finish (1+ finish)))
+            :collect it
+          :until (null finish))))
 
 (defun tokens-standalone-p (tokens)
   (declare (type list tokens))
@@ -360,11 +355,13 @@ The syntax grammar is:
 
 (defun find-standalone-tag (tokens)
   (declare (type list tokens))
-  (let* ((pos (position-if #'tagp tokens))
-         (tag (elt tokens pos)))
-    (setf (indent tag) (subseq tokens 0 pos))
-    (setf (trail tag) (subseq tokens (1+ pos)))
-    tag))
+  (flet ((tagp (token)
+           (typep token 'tag)))
+    (let* ((pos (position-if #'tagp tokens))
+           (tag (elt tokens pos)))
+      (setf (indent tag) (subseq tokens 0 pos))
+      (setf (trail tag) (subseq tokens (1+ pos)))
+      tag)))
 
 (defun trim-standalone (tokens)
   (declare (type list tokens))
@@ -372,10 +369,6 @@ The syntax grammar is:
         :append (if (tokens-standalone-p line)
                     (list (find-standalone-tag line))
                     line)))
-
-(defun tag-match (tag1 tag2)
-  (declare (type tag tag1 tag2))
-  (string-equal (text tag1) (text tag2)))
 
 (defun make-section-tag (start-tag end-tag tokens)
   (declare (type tag start-tag end-tag)
@@ -389,61 +382,51 @@ The syntax grammar is:
                  :open-delimiter (open-delimiter start-tag)
                  :close-delimiter (close-delimiter start-tag)))
 
-(defun push-group (acc)
-  (declare (inline))
-  (cons nil acc))
-
-(defun push-token (token acc)
-  (declare (inline))
-  (cons (cons token (car acc)) (cdr acc)))
-
-(defun pop-group (acc)
-  (declare (inline))
-  (cdr acc))
-
-(defun top-group (acc)
-  (declare (inline))
-  (reverse (car acc)))
-
-(defun push-section-tag (start-tag end-tag acc)
-  (declare (inline))
-  (push-token (make-section-tag start-tag end-tag (top-group acc))
-              (pop-group acc)))
-
 (defun group-sections (tokens &optional sections acc)
   (declare (type list tokens sections acc))
-  (if (not tokens)
-      (top-group acc)
-      (let ((token (car tokens))
-            (rest (cdr tokens))
-            (start-tag (car sections)))
-        (typecase token
-          (section-start-tag
-           (group-sections rest (cons token sections) (push-group acc)))
-          (section-end-tag
-           (when (tag-match token start-tag)
-             (group-sections rest (cdr sections)
-                             (push-section-tag start-tag token acc))))
-          (otherwise
-           (group-sections rest sections (push-token token acc)))))))
-
-(defun textp (token)
-  (declare (inline))
-  (typep token 'text))
+  (labels ((push-group (acc)
+             (cons nil acc))
+           (push-token (token acc)
+             (cons (cons token (car acc)) (cdr acc)))
+           (pop-group (acc)
+             (cdr acc))
+           (top-group (acc)
+             (reverse (car acc)))
+           (push-section-tag (start-tag end-tag acc)
+             (push-token (make-section-tag start-tag end-tag (top-group acc))
+                         (pop-group acc)))
+           (tag-match (tag1 tag2)
+             (string-equal (text tag1) (text tag2))))
+    (if (not tokens)
+        (top-group acc)
+        (let ((token (car tokens))
+              (rest (cdr tokens))
+              (start-tag (car sections)))
+          (typecase token
+            (section-start-tag
+             (group-sections rest (cons token sections) (push-group acc)))
+            (section-end-tag
+             (when (tag-match token start-tag)
+               (group-sections rest (cdr sections)
+                               (push-section-tag start-tag token acc))))
+            (otherwise
+             (group-sections rest sections (push-token token acc))))))))
 
 (defun fold-text (tokens)
   (declare (type list tokens))
-  (loop :for start := 0 :then next
-        :for finish := (position-if-not #'textp tokens :start start)
-        :for next := (and finish (position-if #'textp tokens :start finish))
-        :for texts := (subseq tokens start finish)
-        :when texts
-          :collect (make-instance 'text :text
-                                  (format nil "~{~a~}" (mapcar #'text texts)))
-        :when (and finish
-                   (subseq tokens finish next))
-          :append it
-        :while next))
+  (flet ((textp (token)
+           (typep token 'text)))
+    (loop :for start := 0 :then next
+          :for finish := (position-if-not #'textp tokens :start start)
+          :for next := (and finish (position-if #'textp tokens :start finish))
+          :for texts := (subseq tokens start finish)
+          :when texts
+            :collect (make-instance 'text :text
+                                    (format nil "~{~a~}" (mapcar #'text texts)))
+          :when (and finish
+                     (subseq tokens finish next))
+            :append it
+          :while next)))
 
 (defun parse (template)
   (declare (inline))
