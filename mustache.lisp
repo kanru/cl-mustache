@@ -308,8 +308,8 @@ The syntax grammar is:
   (let ((*open-delimiter* *default-open-delimiter*)
         (*close-delimiter* *default-close-delimiter*))
     (loop :with idx :of-type offset := start
-          :while (> end idx)
           :with token
+          :while (> end idx)
           :when (zerop idx)
             :collect beginning-of-line
           :do (multiple-value-setq (token idx)
