@@ -94,11 +94,7 @@
    (%indent :type list
             :initarg :indent
             :initform ()
-            :accessor indent)
-   (%trail :type list
-           :initarg :trail
-           :initform ()
-           :accessor trail)))
+            :accessor indent)))
 (defclass can-standalone-tag (tag) ())
 (defclass non-standalone-tag (tag) ())
 
@@ -358,8 +354,8 @@ The syntax grammar is:
            (typep token 'tag)))
     (let* ((pos (position-if #'tagp tokens))
            (tag (elt tokens pos)))
-      (setf (indent tag) (subseq tokens 0 pos)
-            (trail tag) (subseq tokens (1+ pos)))
+      (setf (indent tag) (remove beginning-of-line
+                                 (subseq tokens 0 pos)))
       tag)))
 
 (defun trim-standalone (tokens)
@@ -610,12 +606,6 @@ variable before calling mustache-rendering and friends. Default is
 (defmethod print-data (token escapep context)
   (print-data (princ-to-string token) escapep context))
 
-(defun print-indent (context template)
-  (declare (type context context))
-  (when (indent context)
-    ;; FIXME why can't we use the original context here?
-    (funcall (car (indent context)) (make-context) template)))
-
 (defun call-lambda (lambda text context)
   (declare (type function lambda)
            (type string text)
@@ -645,9 +635,7 @@ variable before calling mustache-rendering and friends. Default is
 (defmethod render-token ((token partial-tag) context (template string))
   (let ((fun (compile-template
               (or (read-partial (text token) context) ""))))
-    (push (lambda (context template)
-            (render-tokens (indent token) context template))
-          (indent context))
+    (push (indent token) (indent context))
     (funcall fun context)
     (pop (indent context))))
 
@@ -681,7 +669,7 @@ variable before calling mustache-rendering and friends. Default is
 
 (defmethod render-token ((token beginning-of-line) context (template string))
   (declare (ignore token))
-  (print-indent context template))
+  (render-tokens (car (indent context)) context template))
 
 (defun render-tokens (tokens context template)
   (declare (type list tokens)
