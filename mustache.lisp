@@ -263,13 +263,9 @@ The syntax grammar is:
 (defun read-newline (string start)
   (declare (type string string)
            (type offset start))
-  (cond
-    ((string-starts-with-p crlf string start)
-     (values crlf-newline
-             (+ 2 start)))
-    ((newline-char-p (char string start))
-     (values newline
-             (1+ start)))))
+  (if (string-starts-with-p crlf string start)
+      (values crlf-newline (+ 2 start))
+      (values newline (1+ start))))
 
 (defun read-tag (string triplep start end)
   (declare (type string string)
