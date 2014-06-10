@@ -584,26 +584,24 @@ The syntax grammar is:
 
 ;;; Rendering Utils
 
-(defparameter *char-to-escapes* "<>&\"'")
-
-(defun escape-char (char)
-  (declare (type character char))
-  (case char
-    (#\& "&amp;")
-    (#\< "&lt;")
-    (#\> "&gt;")
-    (#\" "&quot;")
-    (t (format nil "&#~d;" (char-code char)))))
-
 (defun escape (string)
+  "HTML escape STRING."
   (declare (type string string))
-  (flet ((needs-escape-p (char) (find char *char-to-escapes*)))
-    (with-output-to-string (out)
-      (loop :for start = 0 :then (1+ pos)
-            :for pos = (position-if #'needs-escape-p string :start start)
-            :do (write-sequence string out :start start :end pos)
+  (flet ((needs-escape-p (char)
+           (member char '(#\< #\> #\& #\\ #\" #\')))
+         (escape-char (char)
+           (case char
+             (#\& "&amp;")
+             (#\< "&lt;")
+             (#\> "&gt;")
+             (#\" "&quot;")
+             (t (format nil "&#~d;" (char-code char))))))
+    (with-output-to-string (datum)
+      (loop :for start := 0 :then (1+ pos)
+            :for pos := (position-if #'needs-escape-p string :start start)
+            :do (write-string string datum :start start :end pos)
             :when pos
-              :do (write-sequence (escape-char (char string pos)) out)
+              :do (write-string (escape-char (char string pos)) datum)
             :while pos))))
 
 (defvar *real-standard-output* *standard-output*)
