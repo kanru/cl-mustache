@@ -244,13 +244,12 @@ The syntax grammar is:
 (defvar newline (make-instance 'newline))
 (defvar crlf-newline (make-instance 'crlf-newline))
 
-(defun string-match (pattern string &optional (start 0))
+(defun string-starts-with-p (pattern string &optional (start 0))
   (declare (type string pattern string)
-           (type offset start))
-  (let ((end2 (+ start (length pattern)))
-        (len (length string)))
-    (and (>= len end2)
-         (string= pattern string :start2 start :end2 end2))))
+           (type offset start)
+           (inline))
+  (eql (string<= pattern string :start2 start)
+       (length pattern)))
 
 (defun read-text (type string &optional (start 0) (end (length string)))
   (declare (type symbol type)
@@ -260,7 +259,7 @@ The syntax grammar is:
         :while (case type
                  (text (text-char-p (char string idx)))
                  (whitespace (space-char-p (char string idx))))
-        :until (string-match *open-delimiter* string idx)
+        :until (string-starts-with-p *open-delimiter* string idx)
         :finally (return (values (make-instance type
                                                 :text (subseq string start idx))
                                  idx))))
@@ -269,7 +268,7 @@ The syntax grammar is:
   (declare (type string string)
            (type offset start))
   (cond
-    ((string-match crlf string start)
+    ((string-starts-with-p crlf string start)
      (values crlf-newline
              (+ 2 start)))
     ((newline-char-p (char string start))
@@ -283,10 +282,10 @@ The syntax grammar is:
   (let ((before-tag start)
         (tag-open (if triplep *triple-open-delimiter* *open-delimiter*))
         (tag-close (if triplep *triple-close-delimiter* *close-delimiter*)))
-    (when (string-match tag-open string start)
+    (when (string-starts-with-p tag-open string start)
       (incf start (length tag-open))
       (loop :for idx :from start :below end
-            :until (string-match tag-close string idx)
+            :until (string-starts-with-p tag-close string idx)
             :finally (let ((endpos (+ idx (length tag-close))))
                        (return (values (make-tag :str (subseq string
                                                               start idx)
@@ -304,9 +303,9 @@ The syntax grammar is:
        (read-text 'whitespace string start end))
       ((newline-char-p char)
        (read-newline string start))
-      ((string-match *triple-open-delimiter* string start)
+      ((string-starts-with-p *triple-open-delimiter* string start)
        (read-tag string t start end))
-      ((string-match *open-delimiter* string start)
+      ((string-starts-with-p *open-delimiter* string start)
        (read-tag string nil start end))
       (t
        (read-text 'text string start end)))))
