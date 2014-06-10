@@ -244,14 +244,14 @@ The syntax grammar is:
 (defvar newline (make-instance 'newline))
 (defvar crlf-newline (make-instance 'crlf-newline))
 
-(defun string-starts-with-p (pattern string &optional (start 0))
+(defun string-starts-with-p (pattern string start)
   (declare (type string pattern string)
            (type offset start)
            (inline))
   (eql (string<= pattern string :start2 start)
        (length pattern)))
 
-(defun read-text (type string &optional (start 0) (end (length string)))
+(defun read-text (type string start end)
   (declare (type symbol type)
            (type string string)
            (offset start end))
@@ -264,7 +264,7 @@ The syntax grammar is:
                                                 :text (subseq string start idx))
                                  idx))))
 
-(defun read-newline (string &optional (start 0))
+(defun read-newline (string start)
   (declare (type string string)
            (type offset start))
   (cond
@@ -275,7 +275,7 @@ The syntax grammar is:
      (values newline
              (1+ start)))))
 
-(defun read-tag (string &optional triplep (start 0) (end (length string)))
+(defun read-tag (string triplep start end)
   (declare (type string string)
            (type boolean triplep)
            (type offset start end))
@@ -294,7 +294,7 @@ The syntax grammar is:
                                                  :end endpos)
                                        endpos)))))))
 
-(defun read-token (string &optional (start 0) (end (length string)))
+(defun read-token (string start end)
   (declare (type string string)
            (type offset start end))
   (let ((char (char string start)))
@@ -321,7 +321,7 @@ The syntax grammar is:
           :when (zerop idx)
             :collect beginning-of-line
           :do (multiple-value-setq (token idx)
-                (read-token string idx))
+                (read-token string idx end))
           :collect token
           :when (and (< idx end)
                      (typep token 'newline))
@@ -481,14 +481,13 @@ The syntax grammar is:
          result)))
     (otherwise source)))
 
-(defun make-context-chain (&optional data context)
-  (declare (type (or null context) context))
+(defun make-context-chain (data context)
+  (declare (type context context))
   (let ((ctx (make-instance 'context)))
-    (when context
-      (setf (data ctx) data
-            (indent ctx) (indent context)
-            (partials ctx) (partials context)
-            (next ctx) context))
+    (setf (data ctx) data
+          (indent ctx) (indent context)
+          (partials ctx) (partials context)
+          (next ctx) context)
     ctx))
 
 (defun ensure-context (maybe-context)
@@ -548,9 +547,9 @@ The syntax grammar is:
              (uiop:file-exists-p (filename path filename))))
     (some #'dir-file-exists-p *load-path*)))
 
-(defun read-partial (filename &optional context)
+(defun read-partial (filename context)
   (declare (type (or string pathname) filename)
-           (type (or null context) context))
+           (type context context))
   (let ((from-context (context-get filename (partials context))))
     (if from-context
         from-context
@@ -591,17 +590,16 @@ variable before calling mustache-rendering and friends. Default is
       *output-stream*
       *mustache-output*))
 
-(defgeneric print-data (data escapep &optional context))
+(defgeneric print-data (data escapep context))
 
-(defmethod print-data ((data string) escapep &optional context)
+(defmethod print-data ((data string) escapep context)
   (declare (ignore context))
   (write-string (if escapep (escape data) data) (%output)))
 
-(defmethod print-data ((data symbol) escapep &optional context)
-  (declare (ignore context))
-  (print-data (string data) escapep))
+(defmethod print-data ((data symbol) escapep context)
+  (print-data (string data) escapep context))
 
-(defmethod print-data ((data function) escapep &optional context)
+(defmethod print-data ((data function) escapep context)
   (let ((*context* context))
     (let* ((value (format nil "~a" (funcall data)))
            (fun (compile-template value))
@@ -609,20 +607,19 @@ variable before calling mustache-rendering and friends. Default is
                      (funcall fun context))))
       (write-string (if escapep (escape output) output) (%output)))))
 
-(defmethod print-data (token escapep &optional context)
-  (declare (ignore escapep context))
-  (print-data (princ-to-string token) (%output)))
+(defmethod print-data (token escapep context)
+  (print-data (princ-to-string token) escapep context))
 
 (defun print-indent (context template)
-  (declare (type (or null context) context))
-  (when (and context
-             (indent context))
-    (funcall (car (indent context)) nil template)))
+  (declare (type context context))
+  (when (indent context)
+    ;; FIXME why can't we use the original context here?
+    (funcall (car (indent context)) (make-context) template)))
 
-(defun call-lambda (lambda text &optional context)
+(defun call-lambda (lambda text context)
   (declare (type function lambda)
            (type string text)
-           (type (or null context) context))
+           (type context context))
   (let ((*context* context))
     (let* ((value (format nil "~a" (funcall lambda text)))
            (fun (compile-template value))
@@ -635,8 +632,8 @@ variable before calling mustache-rendering and friends. Default is
 (defgeneric render-token (token context template))
 
 (defmethod render-token ((token text) context (template string))
-  (declare (ignore context template))
-  (print-data (text token) nil nil))
+  (declare (ignore template))
+  (print-data (text token) nil context))
 
 (defmethod render-token ((token tag) context (template string))
   (declare (ignore template))
@@ -688,7 +685,7 @@ variable before calling mustache-rendering and friends. Default is
 
 (defun render-tokens (tokens context template)
   (declare (type list tokens)
-           (type (or null context) context)
+           (type context context)
            (type string template))
   (loop :for token :in tokens
         :do (render-token token context template)))
