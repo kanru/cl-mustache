@@ -170,8 +170,8 @@ The syntax grammar is:
                  (every #'space-char-p
                         (subseq text left-edge right-edge)))
       (error "Invalid delimiter tag ~a" text))
-    (setf *open-delimiter* (subseq text 0 left-edge))
-    (setf *close-delimiter* (subseq text (1+ right-edge)))))
+    (setf *open-delimiter* (subseq text 0 left-edge)
+          *close-delimiter* (subseq text (1+ right-edge)))))
 
 ;;; Parser
 
@@ -359,8 +359,8 @@ The syntax grammar is:
            (typep token 'tag)))
     (let* ((pos (position-if #'tagp tokens))
            (tag (elt tokens pos)))
-      (setf (indent tag) (subseq tokens 0 pos))
-      (setf (trail tag) (subseq tokens (1+ pos)))
+      (setf (indent tag) (subseq tokens 0 pos)
+            (trail tag) (subseq tokens (1+ pos)))
       tag)))
 
 (defun trim-standalone (tokens)
@@ -485,12 +485,11 @@ The syntax grammar is:
 (defun make-context-chain (&optional data context)
   (declare (type (or null context) context))
   (let ((ctx (make-instance 'context)))
-    (if context
-        (progn
-          (setf (data ctx) data)
-          (setf (indent ctx) (indent context))
-          (setf (partials ctx) (partials context))
-          (setf (next ctx) context)))
+    (when context
+      (setf (data ctx) data
+            (indent ctx) (indent context)
+            (partials ctx) (partials context)
+            (next ctx) context))
     ctx))
 
 (defun ensure-context (maybe-context)
