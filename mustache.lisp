@@ -463,28 +463,23 @@ The syntax grammar is:
   (check-type token token)
   (parse-key (text token)))
 
-(defun alistp (list)
-  "Poor man's alistp"
-  (declare (inline))
-  (and (listp list)
-       (consp (first list))
-       (atom (first (first list)))))
+(deftype alist ()
+  '(cons (cons atom) (or cons null)))
 
 (defun save-hash-table (source)
   (typecase source
+    (null)
     (string source)
-    (null nil)
-    (vector
-     (when (plusp (length source))
-       (map 'vector #'save-hash-table source)))
-    (list
-     (if (alistp source)
-         (let ((table (make-hash-table :test 'equal)))
-           (loop :for (key . value) :in (reverse source)
-                 :do (setf (gethash (string-upcase key) table)
-                           (save-hash-table value)))
-           table)
-         (map 'vector #'save-hash-table source)))
+    (alist
+     (loop :with table := (make-hash-table :test 'equal)
+           :for (key . value) :in (reverse source)
+           :do (setf (gethash (string-upcase key) table)
+                     (save-hash-table value))
+           :finally (return table)))
+    (sequence
+     (let ((result (map 'vector #'save-hash-table source)))
+       (when (plusp (length result))
+         result)))
     (otherwise source)))
 
 (defun make-context-chain (&optional data context)
