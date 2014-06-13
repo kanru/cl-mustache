@@ -37,6 +37,109 @@
 
 (in-package :mustache)
 
+;;; Types
+
+(deftype offset ()
+  "File or string offset."
+  '(unsigned-byte 32))
+
+(deftype space-char ()
+  '(member #\Space #\Tab))
+
+(deftype newline-char ()
+  '(member #\Linefeed #\Return))
+
+(deftype text-char ()
+  '(and character (not (or space-char newline-char))))
+
+(defun space-char-p (char)
+  (declare (inline))
+  (typep char 'space-char))
+
+(defun newline-char-p (char)
+  (declare (inline))
+  (typep char 'newline-char))
+
+(defun text-char-p (char)
+  (declare (inline))
+  (typep char 'text-char))
+
+(defclass token () ())
+
+(defclass beginning-of-line (token) ())
+
+(defclass text (token)
+  ((%text :type string
+          :initarg :text
+          :accessor text)))
+
+(defclass whitespace (text) ())
+
+(defclass newline (text)
+  ((%text :initform #.(coerce '(#\Linefeed) 'string))))
+
+(defvar crlf (coerce '(#\Return #\Linefeed) 'string))
+
+(defclass crlf-newline (newline)
+  ((%text :initform crlf)))
+
+(defclass tag (token)
+  ((%text :type string
+          :initarg :text
+          :accessor text)
+   (%escapep :type boolean
+             :initarg :escape
+             :initform t
+             :reader escapep)
+   (%indent :type list
+            :initarg :indent
+            :initform ()
+            :accessor indent)))
+(defclass can-standalone-tag (tag) ())
+(defclass non-standalone-tag (tag) ())
+
+(defclass normal-tag (non-standalone-tag) ())
+
+(defclass implicit-iterator-tag (non-standalone-tag) ())
+
+(defclass ampersand-tag (non-standalone-tag)
+  ((%escapep :initform nil)))
+
+(defclass delimiter-tag (can-standalone-tag) ())
+
+(defclass comment-tag (can-standalone-tag) ())
+
+(defclass partial-tag (can-standalone-tag) ())
+
+(defclass section-start-tag (can-standalone-tag)
+  ((%falsey :type boolean
+            :initarg :falsey
+            :initform nil
+            :accessor falsey)
+   (%end :type offset
+         :initarg :end
+         :initform 0
+         :accessor end)
+   (%open-delimiter :type string
+                    :initarg :open-delimiter
+                    :initform ""
+                    :accessor open-delimiter)
+   (%close-delimiter :type string
+                     :initarg :close-delimiter
+                     :initform ""
+                     :accessor close-delimiter)))
+
+(defclass section-end-tag (can-standalone-tag)
+  ((%start :type offset
+           :initarg :start
+           :initform 0
+           :accessor start)))
+
+(defclass section-tag (section-start-tag section-end-tag)
+  ((%tokens :type list
+            :initarg :tokens
+            :accessor tokens)))
+
 ;;; Delimiter
 
 (defparameter *default-open-delimiter* "{{")
@@ -56,60 +159,17 @@ The syntax grammar is:
   left-d        = *ALPHANUM
   right-d       = *ALPHANUM
   space         = #\\Space #\\Tab"
+  (declare (type string text))
   (let* ((left-edge (position #\Space text))
          (right-edge (position #\Space text :from-end t)))
     (unless (and left-edge right-edge
                  (every #'space-char-p
                         (subseq text left-edge right-edge)))
       (error "Invalid delimiter tag ~a" text))
-    (setf *open-delimiter* (subseq text 0 left-edge))
-    (setf *close-delimiter* (subseq text (1+ right-edge)))))
+    (setf *open-delimiter* (subseq text 0 left-edge)
+          *close-delimiter* (subseq text (1+ right-edge)))))
 
 ;;; Parser
-
-(deftype space-char () '(member #\Space #\Tab))
-(deftype newline-char () '(member #\Linefeed #\Return))
-(deftype text-char () '(not (or space-char newline-char)))
-
-(defclass token () ())
-(defclass beginning-of-line (token) ())
-
-(defclass text (token)
-  ((text :initarg :text :accessor text)))
-(defclass whitespace (text) ())
-(defclass newline (text)
-  ((text :initform (coerce '(#\Linefeed) 'string))))
-
-(defvar crlf (coerce '(#\Return #\Linefeed) 'string))
-(defclass crlf-newline (newline)
-  ((text :initform crlf)))
-
-(defclass tag (token)
-  ((text :initarg :text :accessor text)
-   (escape :initarg :escape :initform t :reader escapep)
-   (standalone :initform nil :accessor standalone)
-   (indent :initarg :indent :initform nil :accessor indent)
-   (trail :initarg :trail :initform nil :accessor trail)))
-(defclass can-standalone-tag (tag) ())
-(defclass non-standalone-tag (tag) ())
-
-(defclass normal-tag (non-standalone-tag) ())
-(defclass implicit-iterator-tag (non-standalone-tag) ())
-(defclass ampersand-tag (non-standalone-tag)
-  ((escape :initform nil)))
-(defclass delimiter-tag (can-standalone-tag) ())
-(defclass comment-tag (can-standalone-tag) ())
-(defclass partial-tag (can-standalone-tag) ())
-
-(defclass section-start-tag (can-standalone-tag)
-  ((falsey :initarg :falsey :initform nil :accessor falsey)
-   (end :initarg :end :initform nil :accessor end)
-   (open-delimiter :initarg :open-delimiter :initform nil :accessor open-delimiter)
-   (close-delimiter :initarg :close-delimiter :initform nil :accessor close-delimiter)))
-(defclass section-end-tag (can-standalone-tag)
-  ((start :initarg :start :initform nil :accessor start)))
-(defclass section-tag (section-start-tag section-end-tag)
-  ((tokens :initarg :tokens :accessor tokens)))
 
 (defvar *mustache-tag-table* (make-hash-table))
 
@@ -117,20 +177,27 @@ The syntax grammar is:
   (setf (gethash char *mustache-tag-table*) new-function))
 
 (defun get-mustache-character (char)
+  (declare (inline))
   (gethash char *mustache-tag-table*))
 
-(defun make-tag (&key raw-text escapep start end)
-  (let ((tag-fun (get-mustache-character (char raw-text 0)))
-        (tag-text (string-trim '(#\Space #\Tab) raw-text))
-        (arg-text (string-trim '(#\Space #\Tab) (subseq raw-text 1))))
+(defun make-tag (&key str escapep start end)
+  (declare (type simple-string str)
+           (type boolean escapep)
+           (type offset start end))
+  (let* ((tag-fun (get-mustache-character (char str 0)))
+         (tag-text (string-trim '(#\Space #\Tab) str))
+         (arg-text (string-trim '(#\Space #\Tab) (subseq tag-text 1))))
     (if tag-fun
-        (funcall tag-fun raw-text arg-text escapep start end)
+        (funcall tag-fun str arg-text escapep start end)
         (make-instance 'normal-tag :text tag-text :escape escapep))))
 
 (defmacro define-mustache-character (char &body body)
   `(set-mustache-character
     ,char (lambda (raw-text arg-text escapep start end)
-            (declare (ignorable raw-text arg-text escapep start end))
+            (declare (ignorable raw-text arg-text escapep start end)
+                     (type simple-string raw-text arg-text)
+                     (boolean escapep)
+                     (offset start end))
             ,@body)))
 
 (define-mustache-character #\&
@@ -173,127 +240,130 @@ The syntax grammar is:
 (defvar newline (make-instance 'newline))
 (defvar crlf-newline (make-instance 'crlf-newline))
 
-(defun string-match (pattern string &optional (start 0))
-  (let ((end2 (+ start (length pattern)))
-        (len (length string)))
-    (and (>= len end2)
-         (string= pattern string :start2 start :end2 end2))))
+(defun string-starts-with-p (pattern string start)
+  (declare (type string pattern string)
+           (type offset start)
+           (inline))
+  (eql (string<= pattern string :start2 start)
+       (length pattern)))
 
-(defun text-char-p (char)
-  (typep char 'text-char))
+(defun read-text (type string start end)
+  (declare (type symbol type)
+           (type string string)
+           (offset start end))
+  (loop :for idx :from start :below end
+        :while (case type
+                 (text (text-char-p (char string idx)))
+                 (whitespace (space-char-p (char string idx))))
+        :until (string-starts-with-p *open-delimiter* string idx)
+        :finally (return (values (make-instance type
+                                                :text (subseq string start idx))
+                                 idx))))
 
-(defun space-char-p (char)
-  (typep char 'space-char))
+(defun read-newline (string start)
+  (declare (type string string)
+           (type offset start))
+  (if (string-starts-with-p crlf string start)
+      (values crlf-newline (+ 2 start))
+      (values newline (1+ start))))
 
-(defun newline-char-p (char)
-  (typep char 'newline-char))
-
-(defun read-text (type string &optional (start 0) (end (length string)))
-  (loop for idx from start below end
-        while (case type
-                (text (text-char-p (char string idx)))
-                (whitespace (space-char-p (char string idx))))
-        until (string-match *open-delimiter* string idx)
-        finally (return (values (make-instance type :text (subseq string start idx))
-                                idx))))
-
-(defun read-newline (string &optional (start 0))
-  (cond
-    ((string-match crlf string start)
-     (values crlf-newline
-             (+ 2 start)))
-    ((newline-char-p (char string start))
-     (values newline
-             (1+ start)))))
-
-(defun read-tag (string &optional triple (start 0) (end (length string)))
+(defun read-tag (string triplep start end)
+  (declare (type string string)
+           (type boolean triplep)
+           (type offset start end))
   (let ((before-tag start)
-        (tag-open (if triple *triple-open-delimiter* *open-delimiter*))
-        (tag-close (if triple *triple-close-delimiter* *close-delimiter*)))
-    (when (string-match tag-open string start)
+        (tag-open (if triplep *triple-open-delimiter* *open-delimiter*))
+        (tag-close (if triplep *triple-close-delimiter* *close-delimiter*)))
+    (when (string-starts-with-p tag-open string start)
       (incf start (length tag-open))
-      (loop for idx from start below end
-            until (string-match tag-close string idx)
-            finally (let ((endpos (+ idx (length tag-close))))
-                      (return (values (make-tag :raw-text (subseq string start idx)
-                                                :escapep (not triple)
-                                                :start before-tag
-                                                :end endpos)
-                                      endpos)))))))
+      (loop :for idx :from start :below end
+            :until (string-starts-with-p tag-close string idx)
+            :finally (let ((endpos (+ idx (length tag-close))))
+                       (return (values (make-tag :str (subseq string
+                                                              start idx)
+                                                 :escapep (not triplep)
+                                                 :start before-tag
+                                                 :end endpos)
+                                       endpos)))))))
 
-(defun read-token (string &optional (start 0) (end (length string)))
+(defun read-token (string start end)
+  (declare (type string string)
+           (type offset start end))
   (let ((char (char string start)))
     (cond
       ((space-char-p char)
        (read-text 'whitespace string start end))
       ((newline-char-p char)
        (read-newline string start))
-      ((string-match *triple-open-delimiter* string start)
+      ((string-starts-with-p *triple-open-delimiter* string start)
        (read-tag string t start end))
-      ((string-match *open-delimiter* string start)
+      ((string-starts-with-p *open-delimiter* string start)
        (read-tag string nil start end))
       (t
        (read-text 'text string start end)))))
 
 (defun scan (string &optional (start 0) (end (length string)))
-  (let ((idx start)
-        (*open-delimiter* *default-open-delimiter*)
+  (declare (type string string)
+           (type offset start end))
+  (let ((*open-delimiter* *default-open-delimiter*)
         (*close-delimiter* *default-close-delimiter*))
-    (loop while (> end idx)
-          with token
-          when (zerop idx)
-            collect beginning-of-line
-          do (multiple-value-setq (token idx)
-               (read-token string idx))
-          collect token
-          when (and (< idx end)
-                    (typep token 'newline))
-            collect beginning-of-line)))
+    (loop :with idx :of-type offset := start
+          :with token
+          :while (> end idx)
+          :when (zerop idx)
+            :collect beginning-of-line
+          :do (multiple-value-setq (token idx)
+                (read-token string idx end))
+          :collect token
+          :when (and (< idx end)
+                     (typep token 'newline))
+            :collect beginning-of-line)))
 
 ;;; Parser
 
 (deftype text-token ()
-  '(not (or beginning-of-line can-standalone-tag newline whitespace)))
-
-(defun newlinep (token)
-  (typep token 'newline))
-
-(defun tagp (token)
-  (typep token 'tag))
+  '(and token
+        (not (or beginning-of-line can-standalone-tag newline whitespace))))
 
 (defun collect-line (tokens)
-  (loop for start = 0 then (1+ finish)
-        for finish = (position-if #'newlinep tokens :start start)
-        when (subseq tokens start (and finish (1+ finish)))
-        collect it
-        until (null finish)))
+  (declare (type list tokens))
+  (flet ((newlinep (token)
+           (typep token 'newline)))
+    (loop :for start := 0 :then (1+ finish)
+          :for finish := (position-if #'newlinep tokens :start start)
+          :when (subseq tokens start (and finish (1+ finish)))
+            :collect it
+          :until (null finish))))
 
-(defun standalone-p (tokens)
+(defun tokens-standalone-p (tokens)
+  (declare (type list tokens))
   (when (eq (car tokens) beginning-of-line)
-    (loop for token in tokens
-          count (typep token 'can-standalone-tag) into tags
-          count (typep token 'text-token) into texts
-          finally (return (and (= 1 tags)
-                               (= 0 texts))))))
+    (loop :for token :in tokens
+          :count (typep token 'can-standalone-tag) :into tags
+          :count (typep token 'text-token) :into texts
+          :finally (return (and (= 1 tags)
+                                (= 0 texts))))))
 
-(defun make-standalone-tag (tokens)
-  (let* ((pos (position-if #'tagp tokens))
-         (tag (elt tokens pos)))
-    (setf (indent tag) (subseq tokens 0 pos))
-    (setf (trail tag) (subseq tokens (1+ pos)))
-    (setf (standalone tag) t)
-    tag))
+(defun find-standalone-tag (tokens)
+  (declare (type list tokens))
+  (flet ((tagp (token)
+           (typep token 'tag)))
+    (let* ((pos (position-if #'tagp tokens))
+           (tag (elt tokens pos)))
+      (setf (indent tag) (remove beginning-of-line
+                                 (subseq tokens 0 pos)))
+      tag)))
 
 (defun trim-standalone (tokens)
-  (loop for line in (collect-line tokens)
-        append (if (standalone-p line)
-                   (list (make-standalone-tag line))
-                   line)))
-
-(defun tag-match (tag1 tag2)
-  (string-equal (text tag1) (text tag2)))
+  (declare (type list tokens))
+  (loop :for line :in (collect-line tokens)
+        :append (if (tokens-standalone-p line)
+                    (list (find-standalone-tag line))
+                    line)))
 
 (defun make-section-tag (start-tag end-tag tokens)
+  (declare (type tag start-tag end-tag)
+           (type list tokens))
   (make-instance 'section-tag
                  :tokens tokens
                  :text (text start-tag)
@@ -303,55 +373,54 @@ The syntax grammar is:
                  :open-delimiter (open-delimiter start-tag)
                  :close-delimiter (close-delimiter start-tag)))
 
-(defun push-group (acc)
-  (cons nil acc))
-
-(defun push-token (token acc)
-  (cons (cons token (car acc)) (cdr acc)))
-
-(defun pop-group (acc)
-  (cdr acc))
-
-(defun top-group (acc)
-  (reverse (car acc)))
-
-(defun push-section-tag (start-tag end-tag acc)
-  (push-token (make-section-tag start-tag end-tag (top-group acc))
-              (pop-group acc)))
-
 (defun group-sections (tokens &optional sections acc)
-  (if (not tokens)
-      (top-group acc)
-      (let ((token (car tokens))
-            (rest (cdr tokens))
-            (start-tag (car sections)))
-        (typecase token
-          (section-start-tag
-           (group-sections rest (cons token sections) (push-group acc)))
-          (section-end-tag
-           (when (tag-match token start-tag)
-             (group-sections rest (cdr sections)
-                             (push-section-tag start-tag token acc))))
-          (otherwise
-           (group-sections rest sections (push-token token acc)))))))
-
-(defun textp (token)
-  (typep token 'text))
+  (declare (type list tokens sections acc))
+  (labels ((push-group (acc)
+             (cons nil acc))
+           (push-token (token acc)
+             (cons (cons token (car acc)) (cdr acc)))
+           (pop-group (acc)
+             (cdr acc))
+           (top-group (acc)
+             (reverse (car acc)))
+           (push-section-tag (start-tag end-tag acc)
+             (push-token (make-section-tag start-tag end-tag (top-group acc))
+                         (pop-group acc)))
+           (tag-match (tag1 tag2)
+             (string-equal (text tag1) (text tag2))))
+    (if (not tokens)
+        (top-group acc)
+        (let ((token (car tokens))
+              (rest (cdr tokens))
+              (start-tag (car sections)))
+          (typecase token
+            (section-start-tag
+             (group-sections rest (cons token sections) (push-group acc)))
+            (section-end-tag
+             (when (tag-match token start-tag)
+               (group-sections rest (cdr sections)
+                               (push-section-tag start-tag token acc))))
+            (otherwise
+             (group-sections rest sections (push-token token acc))))))))
 
 (defun fold-text (tokens)
-  (loop for start = 0 then next
-        for finish = (position-if (complement #'textp) tokens :start start)
-        for next = (and finish (position-if #'textp tokens :start finish))
-        for texts = (subseq tokens start finish)
-        when texts
-          collect (make-instance 'text :text
-                                 (format nil "~{~a~}" (mapcar #'text texts)))
-        when (and finish
-                  (subseq tokens finish next))
-          append it
-        while next))
+  (declare (type list tokens))
+  (flet ((textp (token)
+           (typep token 'text)))
+    (loop :for start := 0 :then next
+          :for finish := (position-if-not #'textp tokens :start start)
+          :for next := (and finish (position-if #'textp tokens :start finish))
+          :for texts := (subseq tokens start finish)
+          :when texts
+            :collect (make-instance 'text :text
+                                    (format nil "~{~a~}" (mapcar #'text texts)))
+          :when (and finish
+                     (subseq tokens finish next))
+            :append it
+          :while next)))
 
 (defun parse (template)
+  (declare (inline))
   (group-sections (fold-text (trim-standalone (scan template)))))
 
 ;;; Context
@@ -359,60 +428,58 @@ The syntax grammar is:
 (defvar *context* nil "Current context for lambda section")
 
 (defclass context ()
-  ((data :initarg :data
-         :initform nil
-         :accessor data)
-   (indent :initarg :indent
-           :initform nil
-           :accessor indent)
-   (partials :initarg :partials
-             :initform nil
-             :accessor partials)
-   (next :initarg :next
-         :initform nil
-         :accessor next)))
+  ((%data :initarg :data
+          :initform nil
+          :accessor data)
+   (%indent :type list
+            :initarg :indent
+            :initform nil
+            :accessor indent)
+   (%partials :initarg :partials
+              :initform nil
+              :accessor partials)
+   (%next :type (or null context)
+          :initarg :next
+          :initform nil
+          :accessor next)))
 
 (defun parse-key (string)
-  (loop for start = 0 then (1+ finish)
-        for finish = (position #\. string :start start)
-        collect (string-upcase (subseq string start finish))
-        until (null finish)))
+  (declare (type string string))
+  (loop :for start := 0 :then (1+ finish)
+        :for finish := (position #\. string :start start)
+        :collect (string-upcase (subseq string start finish))
+        :until (null finish)))
 
 (defun key (token)
   (check-type token token)
   (parse-key (text token)))
 
-(defun alistp (list)
-  "Poor man's alistp"
-  (and (listp list)
-       (consp (first list))
-       (atom (first (first list)))))
+(deftype alist ()
+  '(cons (cons atom) (or cons null)))
 
 (defun save-hash-table (source)
   (typecase source
+    (null)
     (string source)
-    (null nil)
-    (vector
-     (when (plusp (length source))
-       (map 'vector #'save-hash-table source)))
-    (list
-     (if (alistp source)
-         (let ((table (make-hash-table :test 'equal)))
-           (loop for (key . value) in (reverse source)
-                 do (setf (gethash (string-upcase key) table)
-                          (save-hash-table value)))
-           table)
-         (map 'vector #'save-hash-table source)))
+    (alist
+     (loop :with table := (make-hash-table :test 'equal)
+           :for (key . value) :in (reverse source)
+           :do (setf (gethash (string-upcase key) table)
+                     (save-hash-table value))
+           :finally (return table)))
+    (sequence
+     (let ((result (map 'vector #'save-hash-table source)))
+       (when (plusp (length result))
+         result)))
     (otherwise source)))
 
-(defun make-context-chain (&optional data context)
+(defun make-context-chain (data context)
+  (declare (type context context))
   (let ((ctx (make-instance 'context)))
-    (if context
-        (progn
-          (setf (data ctx) data)
-          (setf (indent ctx) (indent context))
-          (setf (partials ctx) (partials context))
-          (setf (next ctx) context)))
+    (setf (data ctx) data
+          (indent ctx) (indent context)
+          (partials ctx) (partials context)
+          (next ctx) context)
     ctx))
 
 (defun ensure-context (maybe-context)
@@ -455,11 +522,13 @@ The syntax grammar is:
   "The default file extension for partials.")
 
 (defun filename (filename)
+  (declare (type (or string pathname) filename))
   (or (uiop:file-exists-p filename)
       (uiop:file-exists-p (make-pathname :type *default-pathname-type*
                                          :defaults filename))))
 
 (defun locate-file (filename)
+  (declare (type (or string pathname) filename))
   (uiop:ensure-pathname filename :want-file t)
   (labels ((filename (path filename)
              (merge-pathnames
@@ -470,35 +539,37 @@ The syntax grammar is:
              (uiop:file-exists-p (filename path filename))))
     (some #'dir-file-exists-p *load-path*)))
 
-(defun read-partial (filename &optional context)
+(defun read-partial (filename context)
+  (declare (type (or string pathname) filename)
+           (type context context))
   (let ((from-context (context-get filename (partials context))))
     (if from-context
         from-context
         (let ((pathname (locate-file filename)))
           (when pathname
-            (alexandria:read-file-into-string pathname))))))
+            (uiop:read-file-string pathname))))))
 
 ;;; Rendering Utils
 
-(defparameter *char-to-escapes* "<>&\"'")
-
-(defun escape-char (char)
-  (case char
-    (#\& "&amp;")
-    (#\< "&lt;")
-    (#\> "&gt;")
-    (#\" "&quot;")
-    (t (format nil "&#~d;" (char-code char)))))
-
 (defun escape (string)
-  (flet ((needs-escape-p (char) (find char *char-to-escapes*)))
-    (with-output-to-string (out)
-      (loop for start = 0 then (1+ pos)
-            for pos = (position-if #'needs-escape-p string :start start)
-            do (write-sequence string out :start start :end pos)
-            when pos
-              do (write-sequence (escape-char (char string pos)) out)
-            while pos))))
+  "HTML escape STRING."
+  (declare (type string string))
+  (flet ((needs-escape-p (char)
+           (member char '(#\< #\> #\& #\\ #\" #\')))
+         (escape-char (char)
+           (case char
+             (#\& "&amp;")
+             (#\< "&lt;")
+             (#\> "&gt;")
+             (#\" "&quot;")
+             (t (format nil "&#~d;" (char-code char))))))
+    (with-output-to-string (datum)
+      (loop :for start := 0 :then (1+ pos)
+            :for pos := (position-if #'needs-escape-p string :start start)
+            :do (write-string string datum :start start :end pos)
+            :when pos
+              :do (write-string (escape-char (char string pos)) datum)
+            :while pos))))
 
 (defvar *real-standard-output* *standard-output*)
 (defvar *output-stream* *standard-output*
@@ -511,17 +582,16 @@ variable before calling mustache-rendering and friends. Default is
       *output-stream*
       *mustache-output*))
 
-(defgeneric print-data (data escapep &optional context))
+(defgeneric print-data (data escapep context))
 
-(defmethod print-data ((data string) escapep &optional context)
+(defmethod print-data ((data string) escapep context)
   (declare (ignore context))
   (write-string (if escapep (escape data) data) (%output)))
 
-(defmethod print-data ((data symbol) escapep &optional context)
-  (declare (ignore context))
-  (print-data (string data) escapep))
+(defmethod print-data ((data symbol) escapep context)
+  (print-data (string data) escapep context))
 
-(defmethod print-data ((data function) escapep &optional context)
+(defmethod print-data ((data function) escapep context)
   (let ((*context* context))
     (let* ((value (format nil "~a" (funcall data)))
            (fun (compile-template value))
@@ -529,16 +599,13 @@ variable before calling mustache-rendering and friends. Default is
                      (funcall fun context))))
       (write-string (if escapep (escape output) output) (%output)))))
 
-(defmethod print-data (token escapep &optional context)
-  (declare (ignore escapep context))
-  (print-data (princ-to-string token) (%output)))
+(defmethod print-data (token escapep context)
+  (print-data (princ-to-string token) escapep context))
 
-(defun print-indent (&optional context)
-  (when (and context
-             (indent context))
-    (funcall (car (indent context)) nil)))
-
-(defmethod call-lambda (lambda text &optional context)
+(defun call-lambda (lambda text context)
+  (declare (type function lambda)
+           (type string text)
+           (type context context))
   (let ((*context* context))
     (let* ((value (format nil "~a" (funcall lambda text)))
            (fun (compile-template value))
@@ -550,31 +617,29 @@ variable before calling mustache-rendering and friends. Default is
 
 (defgeneric render-token (token context template))
 
-(defmethod render-token ((token text) context template)
-  (declare (ignore context template))
-  (print-data (text token) nil nil))
+(defmethod render-token ((token text) context (template string))
+  (declare (ignore template))
+  (print-data (text token) nil context))
 
-(defmethod render-token ((token tag) context template)
+(defmethod render-token ((token tag) context (template string))
   (declare (ignore template))
   (multiple-value-bind (dat find)
       (context-get (key token) context)
     (when find
       (print-data dat (escapep token) context))))
 
-(defmethod render-token ((token partial-tag) context template)
+(defmethod render-token ((token partial-tag) context (template string))
   (let ((fun (compile-template
               (or (read-partial (text token) context) ""))))
-    (push (lambda (&optional context template)
-            (render-tokens (indent token) context template))
-          (indent context))
+    (push (indent token) (indent context))
     (funcall fun context)
     (pop (indent context))))
 
-(defmethod render-token ((token section-tag) context template)
+(defmethod render-token ((token section-tag) context (template string))
   (multiple-value-bind (ctx find)
       (context-get (key token) context)
     (when (or find (falsey token))
-      (flet ((render (&optional context template)
+      (flet ((render (context template)
                (render-tokens (tokens token) context template)))
         (if (falsey token)
             (when (null ctx)
@@ -594,17 +659,20 @@ variable before calling mustache-rendering and friends. Default is
               (t
                (render context template))))))))
 
-(defmethod render-token ((token implicit-iterator-tag) context template)
+(defmethod render-token ((token implicit-iterator-tag) context (template string))
   (declare (ignore template))
   (print-data (data context) (escapep token) context))
 
-(defmethod render-token ((token beginning-of-line) context template)
-  (declare (ignore token template))
-  (print-indent context))
+(defmethod render-token ((token beginning-of-line) context (template string))
+  (declare (ignore token))
+  (render-tokens (car (indent context)) context template))
 
 (defun render-tokens (tokens context template)
-  (loop for token in tokens
-        do (render-token token context template)))
+  (declare (type list tokens)
+           (type context context)
+           (type string template))
+  (loop :for token :in tokens
+        :do (render-token token context template)))
 
 (defun render-body (tokens context template)
   (let ((context (ensure-context context)))
@@ -640,7 +708,7 @@ variable before calling mustache-rendering and friends. Default is
         (render-body tokens context template)))))
 
 (defmethod compile-template ((template pathname))
-  (let ((buffer (alexandria:read-file-into-string (filename template))))
+  (let ((buffer (uiop:read-file-string (filename template))))
     (compile-template buffer)))
 
 (defgeneric render (template &optional context output-stream)
@@ -652,7 +720,7 @@ variable before calling mustache-rendering and friends. Default is
     (render-body (parse template) context template)))
 
 (defmethod render ((template pathname) &optional context output-stream)
-  (let ((buffer (alexandria:read-file-into-string (filename template))))
+  (let ((buffer (uiop:read-file-string (filename template))))
     (render buffer context output-stream)))
 
 (defun render* (template &optional context)
