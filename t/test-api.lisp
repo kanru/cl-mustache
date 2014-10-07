@@ -28,86 +28,91 @@
 
 ;;;; Code:
 
-(in-package :mustache-test)
+(in-package :cl-user)
+(defpackage #:mustache-test-api
+  (:use #:cl #:prove))
+(in-package :mustache-test-api)
 
 (defclass unreadable-class ()
   ())
 
-(deftest api
-    (progn
-      (is-type (mustache:version) 'string
-               "(mustache:version) is a version string")
+(plan 14)
 
-      (is-type (mustache:compile-template "string") 'function
-               "compile a string template")
-      (is-type (mustache:compile-template
-                (make-pathname
-                 :directory (pathname-directory
-                             #.(or *load-truename* *compile-file-truename*))
-                 :name "test"
-                 :type "mustache"))
-               'function
-               "compile a file template")
+(is-type (mustache:version) 'string
+         "(mustache:version) is a version string")
 
-      (is (with-output-to-string (mustache:*output-stream*)
-            (mustache:render "TEMPLATE"))
-          "TEMPLATE"
-          "render to mustache:*output-stream*")
-      (is (mustache:render* "TEMPLATE")
-          "TEMPLATE"
-          "render to string")
-      (is (with-output-to-string (out)
-            (mustache:render "TEMPLATE" nil out))
-          "TEMPLATE"
-          "render to out stream")
+(is-type (mustache:compile-template "string") 'function
+         "compile a string template")
+(is-type (mustache:compile-template
+          (make-pathname
+           :directory (pathname-directory
+                       #.(or *load-truename* *compile-file-truename*))
+           :name "test"
+           :type "mustache"))
+         'function
+         "compile a file template")
 
-      (mustache:define test-mustache-define "TEMPLATE")
-      (is (with-output-to-string (mustache:*output-stream*)
-            (test-mustache-define))
-          "TEMPLATE"
-          "mustache:define works")
+(is (with-output-to-string (mustache:*output-stream*)
+      (mustache:render "TEMPLATE"))
+    "TEMPLATE"
+    "render to mustache:*output-stream*")
+(is (mustache:render* "TEMPLATE")
+    "TEMPLATE"
+    "render to string")
+(is (with-output-to-string (out)
+      (mustache:render "TEMPLATE" nil out))
+    "TEMPLATE"
+    "render to out stream")
 
-      (is (mustache:render* "{{#list}}{{item}}{{/list}}"
-                            '((list . (((item . "a"))
-                                       ((item . "b"))
-                                       ((item . "c"))))))
-          "abc"
-          "render context from list")
+(mustache:define test-mustache-define "TEMPLATE")
+(is (with-output-to-string (mustache:*output-stream*)
+      (test-mustache-define))
+    "TEMPLATE"
+    "mustache:define works")
 
-      (is (mustache:render* "{{var}}"
-                            `((:var . ,(make-array 0 :element-type 'character
-                                                     :adjustable t
-                                                     :fill-pointer 0))))
-          ""
-          "render a string of type '(array character (*))")
+(is (mustache:render* "{{#list}}{{item}}{{/list}}"
+                      '((list . (((item . "a"))
+                                 ((item . "b"))
+                                 ((item . "c"))))))
+    "abc"
+    "render context from list")
 
-      (is (mustache:render* "{{var}}"
-                            (let ((context (make-hash-table :test #'equal)))
-                              (setf (gethash "VAR" context) "test")
-                              context))
-          "test"
-          "use a hash-table as context.")
+(is (mustache:render* "{{var}}"
+                      `((:var . ,(make-array 0 :element-type 'character
+                                               :adjustable t
+                                               :fill-pointer 0))))
+    ""
+    "render a string of type '(array character (*))")
 
-      (is (mustache:render* "{{escape}}" '((escape . "<>&\"'")))
-          "&lt;&gt;&amp;&quot;&#39;"
-          "escape char")
+(is (mustache:render* "{{var}}"
+                      (let ((context (make-hash-table :test #'equal)))
+                        (setf (gethash "VAR" context) "test")
+                        context))
+    "test"
+    "use a hash-table as context.")
 
-      (is (mustache:render* "{{var}}" '((var . "pass") (var . "fail")))
-          "pass"
-          "use alist as context, the first match should shadow the rest.")
+(is (mustache:render* "{{escape}}" '((escape . "<>&\"'")))
+    "&lt;&gt;&amp;&quot;&#39;"
+    "escape char")
 
-      (let ((unreadable-instance (make-instance 'unreadable-class)))
-        (is (mustache:render* "!!{{unknown-type}}!!"
-                              `((unknown-type . ,unreadable-instance)))
-            (format nil "!!~a!!" (mustache::escape
-                                  (princ-to-string unreadable-instance)))
-            "escape non printable types"))
+(is (mustache:render* "{{var}}" '((var . "pass") (var . "fail")))
+    "pass"
+    "use alist as context, the first match should shadow the rest.")
+
+(let ((unreadable-instance (make-instance 'unreadable-class)))
+  (is (mustache:render* "!!{{unknown-type}}!!"
+                        `((unknown-type . ,unreadable-instance)))
+      (format nil "!!~a!!" (mustache::escape
+                            (princ-to-string unreadable-instance)))
+      "escape non printable types"))
 
 
-      (is (mustache:render* "{{symbol}}"
-                            '((symbol . symbol)))
-          "SYMBOL"
-          "print symbols")))
+(is (mustache:render* "{{symbol}}"
+                      '((symbol . symbol)))
+    "SYMBOL"
+    "print symbols")
+
+(finalize)
 
 ;;; test-api.lisp ends here
 

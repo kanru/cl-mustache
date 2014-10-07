@@ -2,16 +2,10 @@
   :version "2.0.0"
   :author "Kan-Ru Chen <kanru@kanru.info>"
   :licence "MIT/Expat"
+  :depends-on ("cl-mustache" "prove")
+  :defsystem-depends-on (:prove-asdf)
   :components ((:module "t"
                 :components
-                ((:module "base"
-                  :pathname ""
-                  :components ((:file "test")))
-                 (:module "tests"
-                  :pathname ""
-                  :depends-on ("base")
-                  :components ((:file "test-spec")
-                               (:file "test-api")
-                               (:static-file "test.mustache"))))))
-  :depends-on ("cl-mustache"
-               "cl-test-more"))
+                ((:test-file "test-spec")
+                 (:test-file "test-api")
+                 (:static-file "test.mustache")))))
