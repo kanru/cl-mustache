@@ -34,12 +34,18 @@
 (in-package :mustache-test-ci)
 
 (defun exit (code)
-  (if (find-symbol "EXIT" :sb-ext)
-      (funcall (find-symbol "EXIT" :sb-ext) :code code)
-      (sb-ext:quit :unix-status code)))
+  (let ((exit (find-symbol #.(string :exit) :sb-ext))
+        (quit (find-symbol #.(string :quit) :sb-ext)))
+    (cond
+      (exit (funcall exit :code code))
+      (quit (funcall quit :unix-status code))
+      (t (error "No exit or quit function")))))
 
 (ql:quickload :prove)
-(unless (prove:run :cl-mustache-test)
+(ql:quickload :cl-mustache)
+
+(unless (and (prove:run #P"t/test-api")
+             (prove:run #P"t/test-spec"))
   (exit -1))
 
 ;;; ci.lisp ends here
