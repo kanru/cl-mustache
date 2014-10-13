@@ -992,7 +992,8 @@ End.
  (mustache:render* "<{{^lambda}}{{static}}{{/lambda}}>"
                    (mustache:make-context :data
                                           `((:static . "static")
-                                            (:lambda . ,(lambda (text) nil)))
+                                            (:lambda . ,(lambda (text)
+                                                          (declare (ignore text)))))
                                           :partials 'nil))
  "<>"
  (format nil "~A :: ~A" "Inverted Section"
