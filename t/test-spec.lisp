@@ -4,7 +4,7 @@
   (:use #:cl #:prove))
 (in-package :mustache-test-spec)
 
-(plan 122)
+(plan 124)
 (is
  (mustache:render* "12345 {{! Comment Block! }} 67890"
                    (mustache:make-context :data 'nil :partials 'nil))
@@ -882,6 +882,18 @@ End.
  "\"(a)(b)(c)(d)(e)\""
  (format nil "~A :: ~A" "Implicit Iterator - String"
          "Implicit iterators should directly interpolate strings."))
+(is
+ (mustache:render* "\"{{#list}}({{.}}){{/list}}\""
+                   (mustache:make-context :data '((:list . #("<a>" "<b>" "<c>" "<d>" "<e>"))) :partials 'nil))
+ "\"(&lt;a&gt;)(&lt;b&gt;)(&lt;c&gt;)(&lt;d&gt;)(&lt;e&gt;)\""
+ (format nil "~A :: ~A" "Implicit Iterator - String"
+         "Implicit iterators should be properly escaped."))
+(is
+ (mustache:render* "\"{{#list}}({{{.}}}){{/list}}\""
+                   (mustache:make-context :data '((:list . #("<a>" "<b>" "<c>" "<d>" "<e>"))) :partials 'nil))
+ "\"(<a>)(<b>)(<c>)(<d>)(<e>)\""
+ (format nil "~A :: ~A" "Implicit Iterator - String"
+         "Triple Mustache implicit iterators should interpolate without HTML escaping."))
 (is
  (mustache:render* "[{{#missing}}Found key 'missing'!{{/missing}}]"
                    (mustache:make-context :data 'nil :partials 'nil))

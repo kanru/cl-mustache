@@ -227,7 +227,7 @@ The syntax grammar is:
   (make-instance 'partial-tag :text arg-text))
 
 (define-mustache-character #\.
-  (make-instance 'implicit-iterator-tag :text arg-text))
+  (make-instance 'implicit-iterator-tag :text arg-text :escape escapep))
 
 (defmethod print-object ((object tag) stream)
   (print-unreadable-object (object stream :type t :identity t)
