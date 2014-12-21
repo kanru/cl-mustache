@@ -100,8 +100,6 @@
 
 (defclass normal-tag (non-standalone-tag) ())
 
-(defclass implicit-iterator-tag (non-standalone-tag) ())
-
 (defclass ampersand-tag (non-standalone-tag)
   ((%escapep :initform nil)))
 
@@ -225,9 +223,6 @@ The syntax grammar is:
 
 (define-mustache-character #\>
   (make-instance 'partial-tag :text arg-text))
-
-(define-mustache-character #\.
-  (make-instance 'implicit-iterator-tag :text arg-text :escape escapep))
 
 (defmethod print-object ((object tag) stream)
   (print-unreadable-object (object stream :type t :identity t)
@@ -445,10 +440,12 @@ The syntax grammar is:
 
 (defun parse-key (string)
   (declare (type string string))
-  (loop :for start := 0 :then (1+ finish)
-        :for finish := (position #\. string :start start)
-        :collect (string-upcase (subseq string start finish))
-        :until (null finish)))
+  (cond
+    ((string= string ".") 'implicit-iterator)
+    (t (loop :for start := 0 :then (1+ finish)
+             :for finish := (position #\. string :start start)
+             :collect (string-upcase (subseq string start finish))
+             :until (null finish)))))
 
 (defun key (token)
   (check-type token token)
@@ -506,6 +503,9 @@ The syntax grammar is:
         (values data find)
         (when (next context)
           (context-get key (next context))))))
+
+(defmethod context-get ((key (eql 'implicit-iterator)) context)
+  (values (data context) t))
 
 (defmethod context-get ((key list) context)
   (multiple-value-bind (data find)
@@ -658,10 +658,6 @@ variable before calling mustache-rendering and friends. Default is
               (null)
               (t
                (render context template))))))))
-
-(defmethod render-token ((token implicit-iterator-tag) context (template string))
-  (declare (ignore template))
-  (print-data (data context) (escapep token) context))
 
 (defmethod render-token ((token beginning-of-line) context (template string))
   (declare (ignore token))
