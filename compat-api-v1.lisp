@@ -26,7 +26,7 @@
 
 (in-package :mustache)
 
-(defvar *mustache-output* *output-stream*
+(defvar *mustache-output* (make-synonym-stream '*output-stream*)
   "Deprecated in favor of MUSTACHE:*OUTPUT* since version 0.10.0")
 
 (define-condition deprecation-warning (style-warning)
