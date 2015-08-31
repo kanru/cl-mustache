@@ -571,8 +571,8 @@ The syntax grammar is:
               :do (write-string (escape-char (char string pos)) datum)
             :while pos))))
 
-(defvar *real-standard-output* *standard-output*)
-(defvar *output-stream* *standard-output*
+(defvar *real-standard-output* (make-synonym-stream 'cl:*standard-output*))
+(defvar *output-stream* (make-synonym-stream 'cl:*standard-output*)
   "The default output stream for mustache rendering. Bind this
 variable before calling mustache-rendering and friends. Default is
 *standard-output*.")
