@@ -578,6 +578,7 @@ variable before calling mustache-rendering and friends. Default is
 *standard-output*.")
 
 (defun %output ()
+  (declare (special *mustache-output*))
   (if (eq *mustache-output* *real-standard-output*)
       *output-stream*
       *mustache-output*))
