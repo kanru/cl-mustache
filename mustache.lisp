@@ -551,9 +551,9 @@ The syntax grammar is:
 
 ;;; Rendering Utils
 
-(defun escape (string)
-  "HTML escape STRING."
-  (declare (type string string))
+(defvar *escape-tokens* t)
+
+(defun %escape (string)
   (flet ((needs-escape-p (char)
            (member char '(#\< #\> #\& #\\ #\" #\')))
          (escape-char (char)
@@ -565,11 +565,18 @@ The syntax grammar is:
              (t (format nil "&#~d;" (char-code char))))))
     (with-output-to-string (datum)
       (loop :for start := 0 :then (1+ pos)
-            :for pos := (position-if #'needs-escape-p string :start start)
-            :do (write-string string datum :start start :end pos)
-            :when pos
-              :do (write-string (escape-char (char string pos)) datum)
-            :while pos))))
+         :for pos := (position-if #'needs-escape-p string :start start)
+         :do (write-string string datum :start start :end pos)
+         :when pos
+         :do (write-string (escape-char (char string pos)) datum)
+         :while pos))))
+
+(defun escape (string)
+  "HTML escape STRING when *escape-tokens* is t."
+  (declare (type string string))
+  (if *escape-tokens*
+      (%escape string)
+      string))
 
 (defvar *real-standard-output* (make-synonym-stream 'cl:*standard-output*))
 (defvar *output-stream* (make-synonym-stream 'cl:*standard-output*)
