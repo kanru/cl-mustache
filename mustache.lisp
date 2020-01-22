@@ -489,6 +489,10 @@ The syntax grammar is:
 (defgeneric context-get (key context)
   (:documentation "Get data from CONTEXT by KEY."))
 
+(defmethod context-get ((key string) context)
+  (declare (ignore key))
+  (values))
+
 (defmethod context-get ((key string) (context null))
   (declare (ignore key))
   (values))
@@ -496,7 +500,7 @@ The syntax grammar is:
 (defmethod context-get ((key string) (context hash-table))
   (gethash (string-upcase key) context))
 
-(defmethod context-get ((key string) context)
+(defmethod context-get ((key string) (context context))
   (multiple-value-bind (data find)
       (context-get key (data context))
     (if find

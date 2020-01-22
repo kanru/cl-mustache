@@ -36,7 +36,7 @@
 (defclass unreadable-class ()
   ())
 
-(plan 14)
+(plan 15)
 
 (is-type (mustache:version) 'string
          "(mustache:version) is a version string")
@@ -111,6 +111,12 @@
                       '((symbol . symbol)))
     "SYMBOL"
     "print symbols")
+
+(is (mustache:render* "{{#list}}{{var}}{{/list}}"
+                      '((:var . "foo")
+                        (:list . (1 2 3))))
+    "foofoofoo"
+    "look in parent context for key")
 
 (finalize)
 
