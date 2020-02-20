@@ -71,7 +71,7 @@ Test It
 ::
 
     CL-USR> (ql:quickload "cl-mustache-test")
-    CL-USR> (mustache-test:run)
+    CL-USR> (prove:run :cl-mustache-test)
 
 Extend It (Experimental)
 ========================
