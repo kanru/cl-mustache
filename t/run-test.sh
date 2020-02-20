@@ -2,12 +2,12 @@
 
 if [ ! -e /usr/share/cl-quicklisp/quicklisp.lisp ]; then
     echo "Must install cl-quicklisp to run tests";
-    exit -1;
+    exit 1;
 fi
 
 if [ ! -e t/ci.lisp ]; then
     echo "Must run this from top-level";
-    exit -1;
+    exit 1;
 fi
 
 export QLDIR=`mktemp -d`/
