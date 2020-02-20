@@ -24,7 +24,7 @@
 
 ;;;; Commentary:
 
-;;; 
+;;;
 
 ;;;; Code:
 
@@ -37,6 +37,7 @@
            ;; new
            #:*output-stream*
            #:*context*
+           #:*escape-tokens*
            #:version
            #:make-context
            #:compile-template
