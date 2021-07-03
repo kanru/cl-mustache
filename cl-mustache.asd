@@ -8,4 +8,7 @@
   :components ((:file "packages")
                (:file "mustache" :depends-on ("packages"))
                (:file "compat-api-v1" :depends-on ("mustache")))
-  :depends-on ("uiop"))
+  :depends-on ("uiop")
+  :in-order-to ((asdf:test-op (asdf:load-op :cl-mustache-test)))
+  :perform (asdf:test-op (o c)
+                         (asdf/package:symbol-call :prove 'run :cl-mustache-test)))
