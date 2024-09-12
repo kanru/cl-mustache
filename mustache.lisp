@@ -546,7 +546,28 @@ The syntax grammar is:
 (defun read-partial (filename context)
   (declare (type (or string pathname) filename)
            (type context context))
-  (let ((from-context (context-get filename (partials context))))
+  
+  (let* ((var-name
+           (cond
+             ;; This block implements optional Dynamic Names
+             ;; from this specification:
+             ;; https://github.com/mustache/spec/blob/master/specs/~dynamic-names.yml
+             ((and (typep filename 'string)
+                   (not (zerop (length filename)))
+                   (char= (elt filename 0)
+                          #\*))
+              (let* ((stripped-filename (subseq filename 1))
+                     (dynamic-name (context-get stripped-filename
+                                                context)))
+                (unless dynamic-name
+                  (error "Unable to find dynamic partial name ~S in a context."
+                         stripped-filename))
+
+                dynamic-name))
+             (t
+              filename)))
+         (from-context (context-get var-name (partials context))))
+    
     (if from-context
         from-context
         (let ((pathname (locate-file filename)))
