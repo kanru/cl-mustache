@@ -4,7 +4,7 @@
   (:use #:cl #:prove))
 (in-package :mustache-test-spec)
 
-(plan 124)
+(plan 132)
 (is
  (mustache:render* "12345 {{! Comment Block! }} 67890"
                    (mustache:make-context :data 'nil :partials 'nil))
@@ -1089,5 +1089,87 @@ Hello, (|&lambda|)!"
  "Hello, world!"
  (format nil "~A :: ~A" "Interpolation"
          "A lambda's return value should be interpolated."))
+
+;; Partials
+(is
+ (mustache:render* "{{>*dynamic}}"
+                   (mustache:make-context :data '((:dynamic . "content"))
+                                          :partials '((:content . "Hello, world!"))))
+ "Hello, world!"
+ (format nil "~A :: ~A"
+         "Partials, Basic"
+         "The asterisk operator is used for dynamic partials."))
+(is
+ (mustache:render* "{{>*dynamic}}"
+                   (mustache:make-context :data '((:dynamic . "content")
+                                                  (:*dynamic . "wrong"))
+                                          :partials '((:content . "Hello, world!")
+                                                      (:wrong . "Invisible"))))
+ "Hello, world!"
+ (format nil "~A :: ~A"
+         "Partials, Name Resolution"
+         "The asterisk is not part of the name that will be resolved in the context."))
+(is
+ (mustache:render* "\"{{>*missing}}\""
+                   (mustache:make-context :data '()
+                                          :partials '((:missing . "Hello world!"))))
+ "\"\""
+ (format nil "~A :: ~A"
+         "Partials, Context Misses"
+         "Failed context lookups should be considered falsey."))
+(is
+ (mustache:render* "\"{{>*dynamic}}\""
+                   (mustache:make-context :data '((:dynamic . "content"))
+                                          :partials '((:foobar . "Hello world!"))))
+ "\"\""
+ (format nil "~A :: ~A"
+         "Partials, Failed Lookup"
+         "The empty string should be used when the named partial is not found."))
+(is
+ (mustache:render* "\"{{>*example}}\""
+                   (mustache:make-context :data '((:text . "Hello world!")
+                                                  (:example . "partial"))
+                                          :partials '((:partial . "*{{text}}*"))))
+ "\"*Hello world!*\""
+ (format nil "~A :: ~A"
+         "Partials, Context"
+         "The dynamic partial should operate within the current context."))
+(is
+ (mustache:render* "\"{{>*foo.bar.baz}}\""
+                   (mustache:make-context :data '((:text . "Hello world!")
+                                                  (:foo . ((:bar . ((:baz . "partial"))))))
+                                          :partials '((:partial . "*{{text}}*"))))
+ "\"*Hello world!*\""
+ (format nil "~A :: ~A"
+         "Partials, Dotted Names"
+         "The dynamic partial should operate within the current context."))
+(is
+ (mustache:render* "\"{{>*foo.bar.baz}}\""
+                   (mustache:make-context :data '((:text . "Hello world!")
+                                                  (:foo . "test")
+                                                  (:test . ((:bar . ((:baz . "partial"))))))
+                                          :partials '((:partial . "*{{text}}*"))))
+ "\"\""
+ (format nil "~A :: ~A"
+         "Partials, Dotted Names - Operator Precedence"
+         "The dotted name should be resolved entirely before being dereferenced."))
+(is
+ (mustache:render* "\"{{>*foo.bar.baz}}\""
+                   (mustache:make-context :data '((:foo . ((:text . "Hello world!")
+                                                           (:bar . ((:baz . "partial"))))))
+                                          :partials '((:partial . "*{{text}}*"))))
+ "\"**\""
+ (format nil "~A :: ~A"
+         "Partials, Dotted Names - Failed Lookup"
+         "The dynamic partial should operate within the current context."))
+(is
+ (mustache:render* "\"{{>*foo.bar.baz}}\""
+                   (mustache:make-context :data '((:foo . ((:text . "Hello world!")
+                                                           (:bar . ((:baz . "partial"))))))
+                                          :partials '((:partial . "*{{text}}*"))))
+ "\"**\""
+ (format nil "~A :: ~A"
+         "Partials, Dotted Names - Context Stacking"
+         "Dotted names should not push a new frame on the context stack."))
 
 (finalize)
