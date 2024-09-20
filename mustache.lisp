@@ -678,12 +678,17 @@ variable before calling mustache-rendering and friends. Default is
       (print-data dat (escapep token) context))))
 
 (defmethod render-token ((token partial-tag) context (template string))
-  (let ((fun (compile-template
-              (or (read-partial (text token) context)
-                  ""))))
-    (push (indent token) (indent context))
-    (funcall fun context)
-    (pop (indent context))))
+  (push (indent token) (indent context))
+  
+  (let* ((partial (restart-case (read-partial (text token) context)
+                    (use-value (value)
+                      :report "Use this template instead of missing partial."
+                      value))))
+    (when partial
+      (funcall (compile-template partial)
+               context)))
+  
+  (pop (indent context)))
 
 (defmethod render-token ((token section-tag) context (template string))
   (multiple-value-bind (ctx find)

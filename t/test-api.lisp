@@ -36,7 +36,7 @@
 (defclass unreadable-class ()
   ())
 
-(plan 15)
+(plan 20)
 
 (is-type (mustache:version) 'string
          "(mustache:version) is a version string")
@@ -117,6 +117,72 @@
                         (:list . (1 2 3))))
     "foofoofoo"
     "look in parent context for key")
+
+;; Behaviour of searching for partials can be changed by handling a signal
+
+(define-condition missing-partial (serious-condition)
+  ())
+
+
+(is-error
+ (handler-bind ((mustache:partial-cant-be-found
+                  (lambda (c)
+                    (declare (ignore c))
+                    (error 'missing-partial))))
+   (mustache:render* "\"{{>missing}}\""
+                     (mustache:make-context :data nil
+                                            :partials nil)))
+ 'missing-partial
+ "For missing partial it should be possible to catch a signal and to transform it into an error.")
+
+
+(is-error
+ (handler-bind ((mustache:partial-cant-be-found
+                  (lambda (c)
+                    (declare (ignore c))
+                    (error 'missing-partial))))
+   (mustache:render* "\"{{>*dynamic}}\""
+                     (mustache:make-context :data '((:dynamic . "missing"))
+                                            :partials nil)))
+ 'missing-partial
+ "For missing \"dynamic\" partial it should be possible to catch a signal and to transform it into an error.")
+
+(is-error
+ (handler-bind ((mustache:partial-cant-be-found
+                  (lambda (c)
+                    (declare (ignore c))
+                    (error 'missing-partial))))
+   (mustache:render* "\"{{>*dynamic}}\""
+                     (mustache:make-context :data nil
+                                            :partials nil)))
+ 'missing-partial
+ "When dynamic name can't be found in the data, this should work too.")
+
+
+(is
+ (handler-bind ((mustache:partial-cant-be-found
+                  (lambda (c)
+                    (declare (ignore c))
+                    (use-value "{{some}}"))))
+   (mustache:render* "\"{{>*dynamic}}\""
+                     (mustache:make-context :data '((:some . "replacement"))
+                                            :partials nil)))
+ "\"replacement\""
+ "It is possible to call USE-VALUE restart to return a another template instead of missing partial.")
+
+(is
+ (handler-bind ((mustache:partial-cant-be-found
+                  (lambda (c)
+                    (declare (ignore c))
+                    (use-value "{{some}}"))))
+   (mustache:render* "\"{{>*dynamic}}\""
+                     (mustache:make-context :data '((:some . "replacement")
+                                                    (:dynamic . "missing"))
+                                            :partials nil)))
+ "\"replacement\""
+ "A USE-VALUE restart also can be used when a dynamic partial name was found in data, but not in :PARTIALS.")
+
+
 
 (finalize)
 
