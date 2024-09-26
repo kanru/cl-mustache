@@ -626,10 +626,7 @@ The syntax grammar is:
 variable before calling mustache-rendering and friends. Default is
 *standard-output*.")
 
-(defun %output ()
-  (if (eq *mustache-output* *real-standard-output*)
-      *output-stream*
-      *mustache-output*))
+(defun %output () *output-stream*)
 
 (defgeneric print-data (data escapep context))
 
