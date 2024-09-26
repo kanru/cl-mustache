@@ -53,6 +53,7 @@
            #:mustache-render
            #:mustache-render-to-string
            #:mustache-render-to-stream
+           #:partial-cant-be-found
            #:defmustache))
 
 

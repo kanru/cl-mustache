@@ -543,15 +543,53 @@ The syntax grammar is:
              (uiop:file-exists-p (filename path filename))))
     (some #'dir-file-exists-p *load-path*)))
 
+
+(define-condition partial-cant-be-found ()
+  ((partial-name :initarg :partial-name
+                 :type string
+                 :reader partial-name))
+  (:report (lambda (condition stream)
+             (format stream "Unable to find dynamic partial \"~A\" in a context."
+                     (partial-name condition)))))
+
+
 (defun read-partial (filename context)
   (declare (type (or string pathname) filename)
            (type context context))
-  (let ((from-context (context-get filename (partials context))))
+  
+  (let* ((var-name
+           (cond
+             ;; This block implements optional Dynamic Names
+             ;; from this specification:
+             ;; https://github.com/mustache/spec/blob/master/specs/~dynamic-names.yml
+             ((and (typep filename 'string)
+                   (not (zerop (length filename)))
+                   (char= (elt filename 0)
+                          #\*))
+              (let* ((stripped-filename (subseq filename 1))
+                     (dynamic-name (context-get (parse-key stripped-filename)
+                                                context)))
+                (cond
+                  (dynamic-name
+                   dynamic-name)
+                  (t
+                   (signal 'partial-cant-be-found
+                           :partial-name stripped-filename)
+                   (values nil)))))
+             (t
+              filename)))
+         (from-context (when var-name
+                         (context-get var-name (partials context)))))
+    
     (if from-context
         from-context
         (let ((pathname (locate-file filename)))
-          (when pathname
-            (uiop:read-file-string pathname))))))
+          (cond
+            (pathname
+             (uiop:read-file-string pathname))
+            (t
+             (signal 'partial-cant-be-found
+                     :partial-name (namestring filename))))))))
 
 ;;; Rendering Utils
 
@@ -640,11 +678,17 @@ variable before calling mustache-rendering and friends. Default is
       (print-data dat (escapep token) context))))
 
 (defmethod render-token ((token partial-tag) context (template string))
-  (let ((fun (compile-template
-              (or (read-partial (text token) context) ""))))
-    (push (indent token) (indent context))
-    (funcall fun context)
-    (pop (indent context))))
+  (push (indent token) (indent context))
+  
+  (let* ((partial (restart-case (read-partial (text token) context)
+                    (use-value (value)
+                      :report "Use this template instead of missing partial."
+                      value))))
+    (when partial
+      (funcall (compile-template partial)
+               context)))
+  
+  (pop (indent context)))
 
 (defmethod render-token ((token section-tag) context (template string))
   (multiple-value-bind (ctx find)
